@@ -1,9 +1,9 @@
-// Placeholder landing page. Phase 2 replaces this with the real UI.
+import { redirect } from 'next/navigation';
+
+/**
+ * The root is not a marketing page in this product. Middleware sends signed-out
+ * visitors to /login, so this simply forwards to the dashboard.
+ */
 export default function Home() {
-  return (
-    <main>
-      <h1>Monetiq</h1>
-      <p>Backend ready. Frontend arrives in Phase 2.</p>
-    </main>
-  );
+  redirect('/dashboard');
 }

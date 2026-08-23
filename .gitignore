@@ -42,3 +42,7 @@ Thumbs.db
 # misc
 *.tsbuildinfo
 .vercel
+
+# Playwright
+test-results/
+playwright-report/
