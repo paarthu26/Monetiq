@@ -10,7 +10,7 @@ import { useWriteDisabledReason } from '@/components/shell/BlockedBanner';
 import { EmptyState, ErrorState, InfoBanner } from '@/components/ui/data';
 import { Avatar, Badge, Button, Card, Skeleton, Textarea } from '@/components/ui/primitives';
 import { ConfirmDialog, useToast } from '@/components/ui/overlay';
-import { errorCodeOf, friendlyMessage } from '@/lib/mock/errors';
+import { errorCodeOf, friendlyMessage } from '@/lib/api/errors';
 import {
   useCloseTicket,
   useProfile,

@@ -7,7 +7,7 @@ import { PageHeader } from '@/components/shell/AppShell';
 import { EmptyState, ErrorState, InfoBanner, StatCard } from '@/components/ui/data';
 import { Badge, Button, Card, CardHeader, Skeleton } from '@/components/ui/primitives';
 import { ConfirmDialog, Tabs, useToast } from '@/components/ui/overlay';
-import { friendlyMessage } from '@/lib/mock/errors';
+import { friendlyMessage } from '@/lib/api/errors';
 import { useAdminPrivacyRequests, useAdminResolvePrivacyRequest } from '@/lib/queries/hooks';
 
 type Decision = { id: string; status: 'completed' | 'rejected' } | null;

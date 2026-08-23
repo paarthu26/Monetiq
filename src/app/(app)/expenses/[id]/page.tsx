@@ -11,7 +11,7 @@ import { ExpenseForm } from '@/components/expenses/ExpenseForm';
 import { Amount, EmptyState, ErrorState } from '@/components/ui/data';
 import { Badge, Button, Card, Skeleton } from '@/components/ui/primitives';
 import { ConfirmDialog, useToast } from '@/components/ui/overlay';
-import { errorCodeOf, friendlyMessage } from '@/lib/mock/errors';
+import { errorCodeOf, friendlyMessage } from '@/lib/api/errors';
 import {
   useCategories,
   useDeleteExpense,

@@ -2,7 +2,7 @@
   "name": "monetiq",
   "version": "0.1.0",
   "private": true,
-  "description": "Monetiq \u2014 AI-powered personal finance platform for India",
+  "description": "Monetiq — AI-powered personal finance platform for India",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -15,7 +15,7 @@
     "test:e2e:build": "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54331 NEXT_PUBLIC_SUPABASE_ANON_KEY=e2e-anon-key-not-a-secret NEXT_PUBLIC_SITE_URL=http://127.0.0.1:3100 next build"
   },
   "dependencies": {
-    "@supabase/ssr": "^0.5.2",
+    "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.45.4",
     "@tanstack/react-query": "^5.101.4",
     "lucide-react": "^1.33.0",

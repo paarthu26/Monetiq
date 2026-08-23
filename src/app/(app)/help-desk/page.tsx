@@ -17,7 +17,7 @@ import {
   Textarea,
 } from '@/components/ui/primitives';
 import { Modal, useToast } from '@/components/ui/overlay';
-import { friendlyMessage } from '@/lib/mock/errors';
+import { friendlyMessage } from '@/lib/api/errors';
 import { ticketSchema } from '@/lib/validation/schemas';
 import { useCreateTicket, useTickets } from '@/lib/queries/hooks';
 

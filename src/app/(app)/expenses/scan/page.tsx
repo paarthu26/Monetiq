@@ -12,8 +12,8 @@ import { ErrorState, InfoBanner } from '@/components/ui/data';
 import { Button, Card } from '@/components/ui/primitives';
 import { FileUpload } from '@/components/ui/upload';
 import { useToast } from '@/components/ui/overlay';
-import { friendlyMessage } from '@/lib/mock/errors';
-import type { OcrExtraction } from '@/lib/mock/api';
+import { friendlyMessage } from '@/lib/api/errors';
+import type { OcrExtraction } from '@/lib/api';
 import { useCreateExpense, useProcessReceipt } from '@/lib/queries/hooks';
 
 type Step = 'upload' | 'processing' | 'review' | 'failed';

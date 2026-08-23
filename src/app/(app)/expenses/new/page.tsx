@@ -7,7 +7,7 @@ import { useWriteDisabledReason } from '@/components/shell/BlockedBanner';
 import { ExpenseForm } from '@/components/expenses/ExpenseForm';
 import { Card } from '@/components/ui/primitives';
 import { useToast } from '@/components/ui/overlay';
-import { friendlyMessage } from '@/lib/mock/errors';
+import { friendlyMessage } from '@/lib/api/errors';
 import { useCreateExpense } from '@/lib/queries/hooks';
 
 export default function AddExpensePage() {

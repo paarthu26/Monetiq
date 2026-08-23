@@ -15,7 +15,7 @@
 
 import { AI_DISCLOSURE, AI_REPORT_DISCLAIMER } from '@/lib/constants';
 import type { Tables } from '@/lib/supabase/types';
-import type { MockScenario } from '@/lib/mock/config';
+import type { MockScenario } from './mock-controls';
 
 export const USER_ID = '939daf79-e226-4cd0-8757-52c866e3d999';
 export const ADMIN_ID = '58367972-5772-4701-9ab8-de10d1069758';

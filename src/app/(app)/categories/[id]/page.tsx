@@ -13,7 +13,7 @@ import {
   StatCard,
 } from '@/components/ui/data';
 import { Badge, Button, Card, CardHeader, Skeleton } from '@/components/ui/primitives';
-import { friendlyMessage } from '@/lib/mock/errors';
+import { friendlyMessage } from '@/lib/api/errors';
 import { useBudgetProgress, useCategories, useLedger } from '@/lib/queries/hooks';
 
 const MONTH = '2026-08-01';

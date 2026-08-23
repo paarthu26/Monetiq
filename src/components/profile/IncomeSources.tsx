@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/primitives';
 import { useToast } from '@/components/ui/overlay';
 import { monthlyRecurringIncome } from '@/lib/finance';
-import { friendlyMessage } from '@/lib/mock/errors';
+import { friendlyMessage } from '@/lib/api/errors';
 import { incomeSourceSchema } from '@/lib/validation/schemas';
 import {
   useCreateIncomeSource,

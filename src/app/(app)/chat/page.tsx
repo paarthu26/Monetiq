@@ -8,7 +8,7 @@ import { useWriteDisabledReason } from '@/components/shell/BlockedBanner';
 import { AiDisclosure, ErrorState, InfoBanner, QuotaIndicator } from '@/components/ui/data';
 import { Button, Card, Skeleton, Textarea } from '@/components/ui/primitives';
 import { AI_DISCLOSURE } from '@/lib/constants';
-import { errorCodeOf, friendlyMessage } from '@/lib/mock/errors';
+import { errorCodeOf, friendlyMessage } from '@/lib/api/errors';
 import { useChatMessages, useQuota, useSendChatMessage } from '@/lib/queries/hooks';
 
 const PROMPTS = [

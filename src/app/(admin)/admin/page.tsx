@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { PageHeader } from '@/components/shell/AppShell';
 import { EmptyState, ErrorState, StatCard } from '@/components/ui/data';
 import { Badge, Button, Card, CardHeader, Skeleton } from '@/components/ui/primitives';
-import { friendlyMessage } from '@/lib/mock/errors';
+import { friendlyMessage } from '@/lib/api/errors';
 import {
   useAdminOverview,
   useAdminSystemAlerts,

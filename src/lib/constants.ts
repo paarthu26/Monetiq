@@ -3,7 +3,7 @@
  *
  * These strings are shown next to AI output and written into the downloadable
  * report, so they are part of the product, not part of the fixtures. Phase 3
- * deletes `src/lib/mock/` — nothing there may own text the UI still needs.
+ * removed the mock layer — no test double may own text the UI still needs.
  */
 
 /** Shown with every AI response in the UI. */

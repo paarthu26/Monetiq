@@ -4,7 +4,7 @@ import { PageHeader } from '@/components/shell/AppShell';
 import { EmptyState, ErrorState, InfoBanner, StatCard } from '@/components/ui/data';
 import { CountBars } from '@/components/ui/charts';
 import { Badge, Card, CardHeader, Skeleton } from '@/components/ui/primitives';
-import { friendlyMessage } from '@/lib/mock/errors';
+import { friendlyMessage } from '@/lib/api/errors';
 import { useAdminOcrDashboard, useOcrScans } from '@/lib/queries/hooks';
 
 export default function AdminOcrPage() {

@@ -4,7 +4,7 @@ import { PageHeader } from '@/components/shell/AppShell';
 import { ErrorState, InfoBanner } from '@/components/ui/data';
 import { Card, CardHeader, Skeleton, Toggle } from '@/components/ui/primitives';
 import { useToast } from '@/components/ui/overlay';
-import { friendlyMessage } from '@/lib/mock/errors';
+import { friendlyMessage } from '@/lib/api/errors';
 import { useAdminRolePermissions, useAdminToggleRolePermission } from '@/lib/queries/hooks';
 
 /**

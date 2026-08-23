@@ -1,9 +1,10 @@
 /**
  * Shared harness for the ST-xx screen tests.
  *
- * Screens are rendered as they actually ship — real components, real TanStack
- * Query, real mock API. Only Next's router is substituted (in tests/setup.ts),
- * because jsdom has no App Router runtime.
+ * Screens render exactly as they ship: real components, real TanStack Query,
+ * real hooks. Two things are substituted, both in tests/setup.ts — Next's
+ * router, because jsdom has no App Router runtime, and `@/lib/api`, because
+ * the live one needs Supabase.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, type RenderResult } from '@testing-library/react';
@@ -12,8 +13,8 @@ import type { ReactElement, ReactNode } from 'react';
 
 import { BlockedProvider } from '@/components/shell/BlockedBanner';
 import { ToastProvider } from '@/components/ui/overlay';
-import { resetMockStore } from '@/lib/mock/api';
-import { resetMockControls, setMockControls, type MockControls } from '@/lib/mock/config';
+import { resetMockStore } from '../fake-api';
+import { resetMockControls, setMockControls, type MockControls } from '../mock-controls';
 import { navState, resetNavState, routerMock } from '../nav-state';
 
 export { navState, routerMock };

@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/data';
 import { Button, Card, CardHeader, Input, Select, Skeleton } from '@/components/ui/primitives';
 import { Modal, useToast } from '@/components/ui/overlay';
-import { friendlyMessage } from '@/lib/mock/errors';
+import { friendlyMessage } from '@/lib/api/errors';
 import { budgetSchema } from '@/lib/validation/schemas';
 import {
   useBudgetProgress,

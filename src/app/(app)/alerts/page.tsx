@@ -17,7 +17,7 @@ import {
   Toggle,
 } from '@/components/ui/primitives';
 import { Tabs, useToast } from '@/components/ui/overlay';
-import { friendlyMessage } from '@/lib/mock/errors';
+import { friendlyMessage } from '@/lib/api/errors';
 import {
   useAlertSettings,
   useDismissNotification,

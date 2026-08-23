@@ -24,7 +24,7 @@ import {
   StatCard,
 } from '@/components/ui/data';
 import { Button, Card, CardHeader, Skeleton } from '@/components/ui/primitives';
-import { friendlyMessage } from '@/lib/mock/errors';
+import { friendlyMessage } from '@/lib/api/errors';
 import { monthlyRecurringIncome } from '@/lib/finance';
 import {
   useBudgetProgress,

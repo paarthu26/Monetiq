@@ -17,7 +17,7 @@ import { CategoryDonutSection } from '@/components/ui/charts';
 import { Badge, Button, Card, CardHeader, Skeleton } from '@/components/ui/primitives';
 import { FileUpload } from '@/components/ui/upload';
 import { useToast } from '@/components/ui/overlay';
-import { errorCodeOf, friendlyMessage } from '@/lib/mock/errors';
+import { errorCodeOf, friendlyMessage } from '@/lib/api/errors';
 import { useProcessStatement, useStatementResult, useStatements } from '@/lib/queries/hooks';
 
 type Step = 'list' | 'processing' | 'result' | 'failed';

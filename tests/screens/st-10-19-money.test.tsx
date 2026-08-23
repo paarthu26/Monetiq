@@ -11,7 +11,7 @@ import AnalyticsPage from '@/app/(app)/analytics/page';
 import BudgetPage from '@/app/(app)/budget/page';
 import DebtPage from '@/app/(app)/debt/page';
 import StatementsPage from '@/app/(app)/statements/page';
-import { api } from '@/lib/mock/api';
+import { api } from '../fake-api';
 import { buildStatementWorkbook, workbookToCsvBundle } from '@/lib/report/excel';
 import { calculateEmi } from '@/lib/finance';
 

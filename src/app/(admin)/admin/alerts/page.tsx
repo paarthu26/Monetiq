@@ -7,7 +7,7 @@ import { PageHeader } from '@/components/shell/AppShell';
 import { EmptyState, ErrorState, InfoBanner } from '@/components/ui/data';
 import { Badge, Button, Card, Skeleton } from '@/components/ui/primitives';
 import { Tabs, useToast } from '@/components/ui/overlay';
-import { friendlyMessage } from '@/lib/mock/errors';
+import { friendlyMessage } from '@/lib/api/errors';
 import { useAdminResolveSystemAlert, useAdminSystemAlerts } from '@/lib/queries/hooks';
 
 /**

@@ -18,7 +18,7 @@ import AdminRolesPage from '@/app/(admin)/admin/roles/page';
 import AdminSystemPage from '@/app/(admin)/admin/system/page';
 import AdminUserDetailPage from '@/app/(admin)/admin/users/[id]/page';
 import AdminUsersPage from '@/app/(admin)/admin/users/page';
-import { USER_ID } from '@/lib/mock/fixtures';
+import { USER_ID } from '../fixtures';
 
 const asAdmin = { role: 'super_admin' as const };
 
@@ -82,12 +82,32 @@ describe('ST-28 Admin AI management', () => {
     expect(document.body.textContent).not.toContain('sk-test-not-a-real-key');
   });
 
-  it('has no read path for key material in the mock API at all', () => {
-    const source = readFileSync('src/lib/mock/api.ts', 'utf8');
-    // Mirrors Phase 1: only service_role can reach the Vault accessor, so no
-    // client-facing function may return a key.
-    expect(source).not.toMatch(/api_key\s*:\s*(?!undefined)/);
+  it('has no read path for key material anywhere in the data layer', () => {
+    const source = readFileSync('src/lib/api/index.ts', 'utf8');
+
+    /*
+      The invariant is about what comes BACK, not what goes out. Sending a key
+      to `manage-ai-key` is the whole point of the write path; returning one is
+      the leak. Phase 2 approximated this by banning the string `api_key:`
+      outright, which the mock could satisfy only because it never sent a key
+      anywhere. Against the live layer that proxy flags the send path, so it is
+      replaced here by the three things that actually have to hold.
+    */
+
+    // 1. The Vault accessor is service_role only. Even a super admin gets
+    //    42501 from it, so no client path may so much as name it.
+    expect(source).not.toContain('admin_get_ai_provider_key');
+
+    // 2. The only key-bearing call sends; it never reads a key back.
     expect(source).toContain('Promise<{ has_key: true }>');
+    expect(source).toContain("action: 'set_key'");
+
+    // 3. No returned object carries key material. Every `api_key` occurrence
+    //    must sit in a request body, never behind a `return`.
+    const returnedKeys = source
+      .split('\n')
+      .filter((line) => /\breturn\b.*api_key|api_key.*=>\s*api_key/.test(line));
+    expect(returnedKeys).toEqual([]);
   });
 });
 

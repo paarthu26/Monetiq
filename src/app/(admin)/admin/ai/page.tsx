@@ -16,7 +16,7 @@ import {
   Toggle,
 } from '@/components/ui/primitives';
 import { Modal, useToast } from '@/components/ui/overlay';
-import { friendlyMessage } from '@/lib/mock/errors';
+import { friendlyMessage } from '@/lib/api/errors';
 import {
   useAdminAiDashboard,
   useAdminDeleteProviderKey,

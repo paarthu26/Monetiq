@@ -16,7 +16,7 @@ import { CategoryDonutSection, IncomeExpenseBars } from '@/components/ui/charts'
 import { Card, CardHeader, Input, Skeleton } from '@/components/ui/primitives';
 import { Tabs } from '@/components/ui/overlay';
 import { monthlyRecurringIncome, savingsRatePct } from '@/lib/finance';
-import { friendlyMessage } from '@/lib/mock/errors';
+import { friendlyMessage } from '@/lib/api/errors';
 import { useCategories, useIncomeSources, useLedger } from '@/lib/queries/hooks';
 
 type RangeMode = 'monthly' | 'yearly' | 'custom';

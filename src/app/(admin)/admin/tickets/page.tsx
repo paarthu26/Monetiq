@@ -8,7 +8,7 @@ import { PageHeader } from '@/components/shell/AppShell';
 import { EmptyState, ErrorState } from '@/components/ui/data';
 import { Badge, Card, Skeleton } from '@/components/ui/primitives';
 import { Tabs } from '@/components/ui/overlay';
-import { friendlyMessage } from '@/lib/mock/errors';
+import { friendlyMessage } from '@/lib/api/errors';
 import { useAdminTickets } from '@/lib/queries/hooks';
 
 export default function AdminTicketsPage() {

@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/primitives';
 import { Modal, useToast } from '@/components/ui/overlay';
 import { calculateEmi, formatINR, totalInterest } from '@/lib/finance';
-import { errorCodeOf, friendlyMessage } from '@/lib/mock/errors';
+import { errorCodeOf, friendlyMessage } from '@/lib/api/errors';
 import { debtSchema } from '@/lib/validation/schemas';
 import { useCreateDebt, useDebts, useLoanSuggestion, useQuota } from '@/lib/queries/hooks';
 

@@ -18,7 +18,7 @@ import {
   type Column,
 } from '@/components/ui/data';
 import { Badge, Button, Card, Input, Select } from '@/components/ui/primitives';
-import { friendlyMessage } from '@/lib/mock/errors';
+import { friendlyMessage } from '@/lib/api/errors';
 import { useCategories, useLedger } from '@/lib/queries/hooks';
 import type { Tables } from '@/lib/supabase/types';
 

@@ -4,8 +4,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, useState, type ReactNode } from 'react';
 
 import { ToastProvider } from '@/components/ui/overlay';
-import { ApiError } from '@/lib/mock/errors';
-import { initMockControlsFromLocation } from '@/lib/mock/config';
+import { api } from '@/lib/api';
+import { ApiError } from '@/lib/api/errors';
 
 export function Providers({ children }: { children: ReactNode }) {
   // Created once per browser session, not per render.
@@ -41,8 +41,11 @@ export function Providers({ children }: { children: ReactNode }) {
       }),
   );
 
+  // Records session activity once per page load. Fire-and-forget: the value
+  // only feeds an admin metric read at day granularity, so it must never sit
+  // in the path of a render.
   useEffect(() => {
-    initMockControlsFromLocation(window.location.search);
+    void api.touchActivity();
   }, []);
 
   return (

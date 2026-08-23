@@ -9,7 +9,7 @@ import { PageHeader } from '@/components/shell/AppShell';
 import { EmptyState, ErrorState, InfoBanner } from '@/components/ui/data';
 import { Avatar, Badge, Button, Card, Skeleton, Textarea } from '@/components/ui/primitives';
 import { ConfirmDialog, useToast } from '@/components/ui/overlay';
-import { errorCodeOf, friendlyMessage } from '@/lib/mock/errors';
+import { errorCodeOf, friendlyMessage } from '@/lib/api/errors';
 import { useCloseTicket, useReplyToTicket, useTicket } from '@/lib/queries/hooks';
 
 export default function AdminTicketThreadPage() {

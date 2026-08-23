@@ -7,8 +7,8 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { api } from '@/lib/mock/api';
-import { setMockControls } from '@/lib/mock/config';
+import { api } from './fake-api';
+import { setMockControls } from './mock-controls';
 import {
   budgetSchema,
   debtSchema,

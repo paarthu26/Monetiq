@@ -3,7 +3,7 @@
 import { PageHeader } from '@/components/shell/AppShell';
 import { ErrorState, InfoBanner } from '@/components/ui/data';
 import { Badge, Card, CardHeader, Skeleton } from '@/components/ui/primitives';
-import { friendlyMessage } from '@/lib/mock/errors';
+import { friendlyMessage } from '@/lib/api/errors';
 import { useAdminServices } from '@/lib/queries/hooks';
 
 export default function AdminSystemPage() {

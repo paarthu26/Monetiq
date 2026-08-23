@@ -49,3 +49,15 @@ vi.mock('next/navigation', async () => {
     notFound: vi.fn(),
   };
 });
+
+/**
+ * Screens import `@/lib/api`, which now talks to live Supabase. Tests replace
+ * it with the in-memory double so the 48 screen assertions keep exercising the
+ * real screens, components and query layer with no network and no fixtures in
+ * the shipped bundle.
+ *
+ * Registered here rather than per-file so no suite can accidentally render a
+ * screen against the real client.
+ */
+vi.mock('@/lib/api', async () => await import('./fake-api'));
+vi.mock('@/lib/api/errors', async () => await import('../src/lib/api/errors'));

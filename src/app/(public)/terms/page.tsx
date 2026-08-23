@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 import { ErrorState } from '@/components/ui/data';
 import { Skeleton } from '@/components/ui/primitives';
-import { friendlyMessage } from '@/lib/mock/errors';
+import { friendlyMessage } from '@/lib/api/errors';
 import { useContentPage } from '@/lib/queries/hooks';
 
 export default function TermsPage() {

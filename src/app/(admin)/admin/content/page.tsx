@@ -14,7 +14,7 @@ import {
   Textarea,
 } from '@/components/ui/primitives';
 import { ConfirmDialog, useToast } from '@/components/ui/overlay';
-import { friendlyMessage } from '@/lib/mock/errors';
+import { friendlyMessage } from '@/lib/api/errors';
 import { useAdminUpdateContentPage, useContentPages } from '@/lib/queries/hooks';
 
 export default function AdminContentPage() {

@@ -1,21 +1,20 @@
 /**
- * The mock API surface.
+ * In-memory test double for `src/lib/api`.
  *
- * Every function here mirrors a real Phase 1 contract — the same shapes, the
- * same Edge Function response envelopes, the same error codes. Phase 3 replaces
- * the bodies with Supabase calls; the signatures and the thrown `ApiError`s stay
- * exactly as they are, so no screen has to change.
+ * Phase 2 built this as the application's data layer; Phase 3 replaced that
+ * with live Supabase and this moved here, which is what it always was — a
+ * fake. It exists so the 48 screen assertions (ST-01..32) keep exercising the
+ * real screens, real components and real TanStack Query without a network.
  *
- * Mutations write to an in-memory store so CRUD round trips (E2E-02) actually
- * behave: an added expense really does appear in the ledger, an edit really
- * does change it, a delete really does remove it.
+ * It mirrors the live contract exactly: same function names, same return
+ * shapes, same thrown `ApiError` codes. When they diverge, this file is wrong.
+ * `tests/mock-contract.test.ts` guards the parts a type cannot.
  */
-
 import { computeBudgetProgress, quotaRemaining, quotaUsed, WEEKLY_AI_QUOTA } from '@/lib/finance';
 import { currentQuotaWeekStart } from '@/lib/finance';
 import type { Tables } from '@/lib/supabase/types';
-import { getMockControls } from '@/lib/mock/config';
-import { apiError } from '@/lib/mock/errors';
+import { getMockControls } from './mock-controls';
+import { apiError } from '@/lib/api/errors';
 import {
   AI_DISCLOSURE,
   AI_REPORT_DISCLAIMER,
@@ -31,56 +30,19 @@ import {
   rolePermissions,
   serviceStatus,
   systemAlerts,
-} from '@/lib/mock/fixtures';
+} from './fixtures';
 
 // --------------------------------------------------------------- plumbing --
 
 let store: Dataset | null = null;
 let storeScenario: string | null = null;
 
-/*
-  The dataset is mirrored into sessionStorage so a browser refresh does not
-  silently undo everything the user just did — an added expense is still there
-  after F5, exactly as it would be with a real backend behind it.
-
-  This is fixture data only: no credentials, no tokens, no real personal data,
-  and it is scoped to the tab. The whole mechanism disappears in Phase 3 along
-  with the rest of `src/lib/mock/`.
-*/
-const STORE_KEY = 'monetiq:mock-store';
-
-function persist(): void {
-  if (typeof window === 'undefined' || !store) return;
-  try {
-    window.sessionStorage.setItem(
-      STORE_KEY,
-      JSON.stringify({ scenario: storeScenario, data: store }),
-    );
-  } catch {
-    // Private mode, quota, or storage disabled — the in-memory copy still works.
-  }
-}
-
-function restore(scenario: string): Dataset | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = window.sessionStorage.getItem(STORE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { scenario?: string; data?: Dataset };
-    if (parsed.scenario !== scenario || !parsed.data) return null;
-    return parsed.data;
-  } catch {
-    return null;
-  }
-}
-
 /** In-memory dataset for the active scenario, created lazily and reused. */
 function db(): Dataset {
   const { scenario } = getMockControls();
   if (!store || storeScenario !== scenario) {
-    store = restore(scenario) ?? buildDataset(scenario);
+    store = buildDataset(scenario);
     storeScenario = scenario;
-    persist();
   }
   return store;
 }
@@ -89,13 +51,6 @@ function db(): Dataset {
 export function resetMockStore(): void {
   store = null;
   storeScenario = null;
-  if (typeof window !== 'undefined') {
-    try {
-      window.sessionStorage.removeItem(STORE_KEY);
-    } catch {
-      // Nothing to clear.
-    }
-  }
 }
 
 function delay(ms: number): Promise<void> {
@@ -111,10 +66,7 @@ async function call<T>(fn: () => T): Promise<T> {
   await delay(delayMs);
   if (offline) throw new Error('offline');
   if (failWith) throw apiError(failWith);
-  const result = fn();
-  // Reads are cheap to re-mirror and this way no mutation can forget to.
-  persist();
-  return result;
+  return fn();
 }
 
 /** Writes are refused for a blocked account, exactly as RLS would refuse them. */

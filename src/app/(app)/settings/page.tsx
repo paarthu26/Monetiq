@@ -11,7 +11,7 @@ import { ErrorState, InfoBanner } from '@/components/ui/data';
 import { Button, Card, CardHeader, Input, Skeleton, Textarea } from '@/components/ui/primitives';
 import { ConfirmDialog, useToast } from '@/components/ui/overlay';
 import { createClient } from '@/lib/supabase/client';
-import { friendlyMessage } from '@/lib/mock/errors';
+import { friendlyMessage } from '@/lib/api/errors';
 import { profileUpdateSchema } from '@/lib/validation/schemas';
 import { useProfile, useUpdateProfile } from '@/lib/queries/hooks';
 

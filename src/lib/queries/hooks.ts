@@ -13,7 +13,7 @@ import {
   type UseMutationOptions,
 } from '@tanstack/react-query';
 
-import { api, type LedgerFilters } from '@/lib/mock/api';
+import { api, type LedgerFilters } from '@/lib/api';
 import { qk } from '@/lib/queries/keys';
 import type { Tables } from '@/lib/supabase/types';
 

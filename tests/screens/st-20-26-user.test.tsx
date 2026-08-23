@@ -59,7 +59,7 @@ describe('ST-21 Chat, provider_not_configured', () => {
 
     // Flip the mock to the outage the Edge Function returns as 503.
     (window as unknown as { __monetiqMock?: { set: (p: object) => void } }).__monetiqMock;
-    const { setMockControls } = await import('@/lib/mock/config');
+    const { setMockControls } = await import('../mock-controls');
     setMockControls({ failWith: 'provider_not_configured' });
 
     await user.click(screen.getByTestId('chat-send'));
