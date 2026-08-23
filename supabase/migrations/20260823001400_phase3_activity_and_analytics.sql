@@ -166,11 +166,18 @@ comment on function public.analytics_monthly_rollup(date, date) is
   'Monthly spend rollup from the EXPENSE LEDGER only. SECURITY INVOKER so RLS scopes it to the caller.';
 
 -- --------------------------------------------------------------- grants ----
--- Same hardening as migration 0013: Postgres grants EXECUTE to PUBLIC on every
--- new function, and anon inherits it. Revoke first, then grant narrowly.
-revoke execute on function public.touch_last_active() from public;
-revoke execute on function public.analytics_category_rollup(date, date) from public;
-revoke execute on function public.analytics_monthly_rollup(date, date) from public;
+--
+-- Two separate revokes are needed, and missing the second one is easy.
+--
+-- Postgres grants EXECUTE to PUBLIC on every new function, so `revoke ... from
+-- public` deals with that. But Supabase additionally installs default
+-- privileges that grant EXECUTE *directly* to `anon`, `authenticated` and
+-- `service_role`. A direct grant is not removed by revoking from PUBLIC, so
+-- without the second revoke these functions stay callable by an unauthenticated
+-- caller — which the database linter flags, and which is how this was caught.
+revoke execute on function public.touch_last_active() from public, anon;
+revoke execute on function public.analytics_category_rollup(date, date) from public, anon;
+revoke execute on function public.analytics_monthly_rollup(date, date) from public, anon;
 
 grant execute on function public.touch_last_active() to authenticated;
 grant execute on function public.analytics_category_rollup(date, date) to authenticated;

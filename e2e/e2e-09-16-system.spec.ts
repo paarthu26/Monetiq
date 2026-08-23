@@ -4,7 +4,14 @@
 import { expect, test } from './base';
 
 import { OTHER_USER_LABEL } from './constants';
-import { passTermsGate, setMock, signIn, signInAndOpen } from './helpers';
+import {
+  breakBackend,
+  passTermsGate,
+  restoreBackend,
+  signIn,
+  signInAndOpen,
+  signInAsAdmin,
+} from './helpers';
 
 /* ------------------------------------------------------------------ E2E-09 */
 
@@ -39,7 +46,9 @@ test('E2E-10 a signed-in normal user is denied every admin route', async ({ page
 /* ------------------------------------------------------------------ E2E-11 */
 
 test('E2E-11 admin blocks a user and the audit log records it', async ({ page }) => {
-  await signInAndOpen(page, '/admin/users?mockRole=super_admin');
+  await signInAsAdmin(page);
+  await page.goto('/admin/users');
+  await passTermsGate(page);
 
   await page.getByRole('link', { name: OTHER_USER_LABEL }).first().click();
   await page.getByRole('button', { name: /^block$/i }).click();
@@ -57,7 +66,9 @@ test('E2E-11 admin blocks a user and the audit log records it', async ({ page })
 /* ------------------------------------------------------------------ E2E-12 */
 
 test('E2E-12 publishing new terms forces every user to re-accept', async ({ page }) => {
-  await signInAndOpen(page, '/admin/content?mockRole=super_admin');
+  await signInAsAdmin(page);
+  await page.goto('/admin/content');
+  await passTermsGate(page);
 
   // The card is the innermost element wrapping the Terms heading.
   const termsCard = page
@@ -172,9 +183,9 @@ test('E2E-15 back and forward across five screens', async ({ page }) => {
 test('E2E-16 a failure during load shows a retry that works once restored', async ({ page }) => {
   await signInAndOpen(page, '/dashboard');
 
-  // Break the data layer, then force a refetch by navigating.
-  await setMock(page, { failWith: 'internal_error' });
-  await page.goto('/ledger?mockFail=internal_error');
+  // Break the data layer at the network, then force a refetch by navigating.
+  await breakBackend(page);
+  await page.goto('/ledger');
   await passTermsGate(page);
 
   const retry = page.getByRole('button', { name: /try again/i }).first();
@@ -182,7 +193,7 @@ test('E2E-16 a failure during load shows a retry that works once restored', asyn
   await expect(page.getByText('internal_error')).toHaveCount(0);
 
   // Restore the connection and retry from the error state itself.
-  await setMock(page, { failWith: null });
+  await restoreBackend(page);
   await retry.click();
   await expect(page.locator('tbody tr').first()).toBeVisible();
 });

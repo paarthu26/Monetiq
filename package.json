@@ -2,7 +2,7 @@
   "name": "monetiq",
   "version": "0.1.0",
   "private": true,
-  "description": "Monetiq — AI-powered personal finance platform for India",
+  "description": "Monetiq \u2014 AI-powered personal finance platform for India",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -12,7 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "test:e2e:build": "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54331 NEXT_PUBLIC_SUPABASE_ANON_KEY=e2e-anon-key-not-a-secret NEXT_PUBLIC_SITE_URL=http://127.0.0.1:3100 next build"
+    "test:int": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
@@ -37,6 +37,7 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.5.4",
+    "dotenv": "^17.4.2",
     "eslint": "^8.57.1",
     "eslint-config-next": "^14.2.35",
     "jsdom": "^30.0.1",

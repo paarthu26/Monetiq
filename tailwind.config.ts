@@ -144,7 +144,8 @@ const config: Config = {
       },
 
       fontFamily: {
-        sans: ['Poppins', '-apple-system', 'Segoe UI', 'sans-serif'],
+        // Fed by next/font/google, which self-hosts the face at build time.
+        sans: ['var(--font-poppins)', 'Poppins', '-apple-system', 'Segoe UI', 'sans-serif'],
       },
 
       fontSize: {

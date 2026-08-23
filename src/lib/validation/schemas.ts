@@ -164,6 +164,14 @@ export const debtUpdateSchema = z.object({
 });
 
 // ----------------------------------------------------------------- budget --
+/**
+ * No `month` field, and that is correct rather than an omission.
+ *
+ * `budgets` has no month column: a budget is a standing monthly cap for a
+ * category. The month is a parameter of the *progress* calculation, which
+ * `budget_progress(p_month)` takes at read time. Phase 2 flagged this as a
+ * possible gap; the live schema settles it.
+ */
 export const budgetSchema = z.object({
   category_id: uuid,
   monthly_cap: positiveAmount,
@@ -197,9 +205,25 @@ export const ticketSchema = z.object({
   body: trimmed(1, 5000, 'Message'),
 });
 
+export const TICKET_BODY_MAX = 5000;
+
 export const ticketReplySchema = z.object({
   ticket_id: uuid,
-  body: trimmed(1, 5000, 'Message'),
+  body: trimmed(1, TICKET_BODY_MAX, 'Message'),
+});
+
+/**
+ * Mirrors the `ai-chat` Edge Function's own bound exactly.
+ *
+ * The function is the authority and rejects anything longer; duplicating the
+ * number here is deliberate so the user is told before a round trip, and the
+ * two are meant to move together. If they ever disagree, the function wins and
+ * this is the bug.
+ */
+export const CHAT_MESSAGE_MAX = 2000;
+
+export const chatMessageSchema = z.object({
+  message: trimmed(1, CHAT_MESSAGE_MAX, 'Message'),
 });
 
 // ------------------------------------------------------- bank statements --
@@ -258,3 +282,5 @@ export const aiLoanSuggestionSchema = z.object({
 export type ExpenseInput = z.infer<typeof expenseSchema>;
 export type DebtInput = z.infer<typeof debtSchema>;
 export type BudgetInput = z.infer<typeof budgetSchema>;
+export type ChatMessageInput = z.infer<typeof chatMessageSchema>;
+export type TicketReplyInput = z.infer<typeof ticketReplySchema>;

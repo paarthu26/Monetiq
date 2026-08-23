@@ -11,6 +11,7 @@ import { EmptyState, ErrorState, InfoBanner } from '@/components/ui/data';
 import { Avatar, Badge, Button, Card, Skeleton, Textarea } from '@/components/ui/primitives';
 import { ConfirmDialog, useToast } from '@/components/ui/overlay';
 import { errorCodeOf, friendlyMessage } from '@/lib/api/errors';
+import { TICKET_BODY_MAX, ticketReplySchema } from '@/lib/validation/schemas';
 import {
   useCloseTicket,
   useProfile,
@@ -29,6 +30,7 @@ export default function TicketThreadPage() {
   const { toast } = useToast();
 
   const [draft, setDraft] = useState('');
+  const [replyError, setReplyError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
 
   if (ticket.isPending) {
@@ -126,10 +128,21 @@ export default function TicketThreadPage() {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                const body = draft.trim();
-                if (!body) return;
+                // The shared schema owns the length bound, so the reply form
+                // and anything else that posts a message agree on one number.
+                const parsed = ticketReplySchema.safeParse({
+                  ticket_id: id,
+                  body: draft,
+                });
+                if (!parsed.success) {
+                  setReplyError(
+                    parsed.error.issues[0]?.message ?? 'That reply cannot be sent.',
+                  );
+                  return;
+                }
+                setReplyError(null);
                 reply.mutate(
-                  { ticketId: id, body },
+                  { ticketId: id, body: parsed.data.body },
                   {
                     onSuccess: () => {
                       setDraft('');
@@ -150,6 +163,8 @@ export default function TicketThreadPage() {
                 onChange={(e) => setDraft(e.target.value)}
                 rows={4}
                 disabled={!!writeDisabled}
+                maxLength={TICKET_BODY_MAX}
+                error={replyError ?? undefined}
                 hint={writeDisabled}
               />
               <div className="mt-2 flex justify-end">

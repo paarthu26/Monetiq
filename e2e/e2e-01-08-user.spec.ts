@@ -3,7 +3,7 @@
  */
 import { expect, test } from './base';
 
-import { UNVERIFIED, USER, passTermsGate, setMock, signIn, signInAndOpen } from './helpers';
+import { UNVERIFIED, USER, passTermsGate, signIn, signInAndOpen } from './helpers';
 
 /* ------------------------------------------------------------------ E2E-01 */
 

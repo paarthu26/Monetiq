@@ -8,6 +8,7 @@ import { useWriteDisabledReason } from '@/components/shell/BlockedBanner';
 import { AiDisclosure, ErrorState, InfoBanner, QuotaIndicator } from '@/components/ui/data';
 import { Button, Card, Skeleton, Textarea } from '@/components/ui/primitives';
 import { AI_DISCLOSURE } from '@/lib/constants';
+import { CHAT_MESSAGE_MAX, chatMessageSchema } from '@/lib/validation/schemas';
 import { errorCodeOf, friendlyMessage } from '@/lib/api/errors';
 import { useChatMessages, useQuota, useSendChatMessage } from '@/lib/queries/hooks';
 
@@ -35,11 +36,21 @@ export default function ChatPage() {
   // A composer disabled by quota must say so; one disabled by a block says that.
   const composerDisabled = exhausted || !!writeDisabled || send.isPending;
 
+  // Validated against the same bound the Edge Function enforces, so an
+  // over-long message is refused here instead of after a round trip that
+  // would also have spent nothing but the user's patience.
+  const [lengthError, setLengthError] = useState<string | null>(null);
+
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    const text = draft.trim();
-    if (!text || composerDisabled) return;
-    send.mutate(text, { onSuccess: () => setDraft('') });
+    if (composerDisabled) return;
+    const parsed = chatMessageSchema.safeParse({ message: draft });
+    if (!parsed.success) {
+      setLengthError(parsed.error.issues[0]?.message ?? 'That message cannot be sent.');
+      return;
+    }
+    setLengthError(null);
+    send.mutate(parsed.data.message, { onSuccess: () => setDraft('') });
   }
 
   return (
@@ -141,6 +152,8 @@ export default function ChatPage() {
                 onChange={(e) => setDraft(e.target.value)}
                 rows={2}
                 disabled={composerDisabled}
+                maxLength={CHAT_MESSAGE_MAX}
+                error={lengthError ?? undefined}
                 placeholder={
                   exhausted ? 'Your weekly allowance is used up' : 'Ask about your spending…'
                 }

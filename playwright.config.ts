@@ -1,12 +1,15 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const PORT = 3100;
-const AUTH_STUB_PORT = 54331;
 
 /**
- * The app under test is the real production build, behind the real middleware.
- * Only the remote Supabase Auth service is substituted, by `e2e/auth-stub.mjs`
- * (see the comment at the top of that file).
+ * The app under test is the real production build against the real Supabase
+ * project — no stub of any kind.
+ *
+ * Phase 2 ran this suite against a local GoTrue stub because that sandbox had
+ * no outbound network. Phase 3 removed it: credentials come from `.env.local`,
+ * so the browser, the middleware and the Edge Functions all talk to the live
+ * project exactly as they would in production.
  */
 export default defineConfig({
   testDir: './e2e',
@@ -30,23 +33,12 @@ export default defineConfig({
     },
     { name: 'mobile', use: { ...devices['Pixel 5'], viewport: { width: 360, height: 740 } }, testMatch: /mobile\.spec\.ts/ },
   ],
-  webServer: [
-    {
-      command: `node e2e/auth-stub.mjs`,
-      url: `http://127.0.0.1:${AUTH_STUB_PORT}/auth/v1/settings`,
-      reuseExistingServer: true,
-      env: { AUTH_STUB_PORT: String(AUTH_STUB_PORT) },
-    },
-    {
-      command: `npx next start -p ${PORT}`,
-      url: `http://127.0.0.1:${PORT}/login`,
-      reuseExistingServer: true,
-      timeout: 120_000,
-      env: {
-        NEXT_PUBLIC_SUPABASE_URL: `http://127.0.0.1:${AUTH_STUB_PORT}`,
-        NEXT_PUBLIC_SUPABASE_ANON_KEY: 'e2e-anon-key-not-a-secret',
-        NEXT_PUBLIC_SITE_URL: `http://127.0.0.1:${PORT}`,
-      },
-    },
-  ],
+  webServer: {
+    command: `npx next start -p ${PORT}`,
+    url: `http://127.0.0.1:${PORT}/login`,
+    reuseExistingServer: true,
+    timeout: 120_000,
+    // Inherits NEXT_PUBLIC_SUPABASE_* from .env.local, so the build and the
+    // running app point at the same live project the developer is using.
+  },
 });
