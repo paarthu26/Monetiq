@@ -479,3 +479,46 @@ describe('storage keys and limits (INT-12..15)', () => {
     }
   });
 });
+
+describe('INT-30 per-user request rate limiting on the intake functions', () => {
+  it('INT-30 refuses with 429 rate_limited once the burst budget is spent', async () => {
+    requireLive();
+
+    // process_loan_document has the tighter budget (5 per 10 minutes), so this
+    // costs the fewest calls to demonstrate. The paths are deliberately
+    // nonexistent: a rate limit counts REQUESTS, not successes, so a request
+    // that goes on to fail must still consume budget. If these 404s did not
+    // count, the loop below would never reach a 429.
+    const statuses: number[] = [];
+    for (let i = 0; i < 7; i++) {
+      const res = await user.functions.invoke('process-loan-document', {
+        body: { path: `${userId}/int-30-probe-${i}.pdf` },
+      });
+      const status = (res.error as { context?: Response } | null)?.context?.status ?? 200;
+      statuses.push(status);
+    }
+
+    expect(statuses.filter((s) => s === 429).length).toBeGreaterThan(0);
+
+    // The refusal must name the rate limit, not the weekly AI quota — they are
+    // different controls and the user-facing message differs.
+    const refused = await user.functions.invoke('process-loan-document', {
+      body: { path: `${userId}/int-30-final.pdf` },
+    });
+    const body = await (refused.error as { context?: Response } | null)?.context?.json();
+    expect(body?.error?.code).toBe('rate_limited');
+  });
+
+  it('INT-31 the counter table is unreachable from a client', async () => {
+    requireLive();
+    // RLS with zero policies: a user can neither read their own counter nor
+    // delete rows to reset it.
+    const read = await user.from('request_rate_log').select('*');
+    expect(read.data ?? [], 'the rate counter must not be readable').toEqual([]);
+
+    const forge = await user
+      .from('request_rate_log')
+      .insert({ user_id: userId, action: 'process_receipt' });
+    expect(forge.error, 'a client must not be able to write the rate counter').not.toBeNull();
+  });
+});

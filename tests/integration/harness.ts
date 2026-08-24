@@ -15,9 +15,13 @@ export const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
 export const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
 
 export const ACCOUNTS = {
-  user: { email: 'dev.user@monetiq.test', password: 'DevUser123!' },
-  user2: { email: 'dev.user2@monetiq.test', password: 'DevUser123!' },
-  admin: { email: 'dev.admin@monetiq.test', password: 'DevAdmin123!' },
+  user: { email: 'dev.user@monetiq.test', password: 'MonetiqDevUser!2026' },
+  user2: { email: 'dev.user2@monetiq.test', password: 'MonetiqDevUser2!2026' },
+  admin: { email: 'dev.admin@monetiq.test', password: 'MonetiqDevAdmin!2026' },
+  unverified: {
+    email: 'dev.unverified@monetiq.test',
+    password: 'MonetiqDevUnverified!2026',
+  },
 };
 
 /**

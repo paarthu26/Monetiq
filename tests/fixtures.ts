@@ -14,6 +14,7 @@
  */
 
 import { AI_DISCLOSURE, AI_REPORT_DISCLAIMER } from '@/lib/constants';
+import { currentQuotaWeekStart } from '@/lib/finance';
 import type { Tables } from '@/lib/supabase/types';
 import type { MockScenario } from './mock-controls';
 
@@ -27,6 +28,24 @@ const MONTH = '2026-08';
 
 function iso(date: string, time = '09:00:00'): string {
   return `${date}T${time}.000Z`;
+}
+
+/**
+ * A timestamp inside the CURRENT quota week.
+ *
+ * The AI usage rows were originally pinned to fixed calendar dates. That made
+ * ST-20 and the quota journeys silently stop testing anything the moment the
+ * IST week rolled over — the rows fell into the previous week, `quotaUsed`
+ * counted zero, and "quota exhausted" quietly became "quota available". It
+ * survived two phases only because both happened to run mid-week; it failed on
+ * the first Monday.
+ *
+ * Anchoring to `currentQuotaWeekStart()` — the same helper the product uses —
+ * means these fixtures mean the same thing on any day they run.
+ */
+function withinCurrentQuotaWeek(hoursIntoWeek = 9): string {
+  const start = currentQuotaWeekStart();
+  return new Date(start.getTime() + hoursIntoWeek * 60 * 60 * 1000).toISOString();
 }
 
 /**
@@ -410,7 +429,7 @@ export const aiUsageTypical: Tables<'ai_usage_log'>[] = [
     cost_usd: 0.0121,
     duration_ms: 2400,
     error_code: null,
-    created_at: iso(`${MONTH}-18`, '10:12:00'),
+    created_at: withinCurrentQuotaWeek(10),
   },
 ];
 
@@ -428,7 +447,7 @@ export const aiUsageExhausted: Tables<'ai_usage_log'>[] = [
     cost_usd: 0.0104,
     duration_ms: 3100,
     error_code: null,
-    created_at: iso(`${MONTH}-20`, '17:02:00'),
+    created_at: withinCurrentQuotaWeek(31),
   },
 ];
 

@@ -15,6 +15,8 @@ export const ERROR_CODES = [
   'not_found',
   'file_not_found',
   'quota_exhausted',
+  'rate_limited',
+  'rate_limit_unavailable',
   'provider_not_configured',
   'provider_error',
   'provider_unavailable',
@@ -64,6 +66,15 @@ const MESSAGES: Record<ErrorCode, { message: string; status: number }> = {
     message:
       'You have used all 2 AI generations for this week. Your allowance resets on Monday.',
     status: 429,
+  },
+  rate_limited: {
+    message:
+      'Too many uploads in a short time. Please wait a few minutes and try again.',
+    status: 429,
+  },
+  rate_limit_unavailable: {
+    message: 'Could not verify your upload allowance. Please try again shortly.',
+    status: 503,
   },
   provider_not_configured: {
     message: 'No AI provider is currently enabled. Please contact support.',

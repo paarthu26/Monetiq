@@ -15,7 +15,7 @@
 
 import {
   AppError, corsHeaders, errorResponse, json, parseBody, requireActiveAccount,
-  requireUser, serviceClient, assertOwnedPath, z,
+  requireUser, serviceClient, assertOwnedPath, assertWithinRateLimit, z,
 } from '../_shared/lib.ts';
 
 const BUCKET = 'bank-statements-staging';
@@ -171,11 +171,16 @@ Deno.serve(async (req) => {
     const user = await requireUser(req);
     userId = user.id;
     await requireActiveAccount(db, user.id);
-
     const body = await parseBody(req, Body);
     path = body.path;
     uploadId = body.upload_id;
     assertOwnedPath(path, user.id);
+
+    // Rate limited here rather than before parseBody: the check must run
+    // before any download or parsing work, but `path` has to be resolved
+    // first so the finally block still deletes the staged file when a
+    // request is refused. A 429 must not leave the upload behind.
+    await assertWithinRateLimit(db, user.id, 'process_bank_statement');
 
     // The upload row must belong to the caller — the service role bypasses
     // RLS, so ownership is re-checked explicitly here.

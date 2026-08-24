@@ -119,10 +119,52 @@ begin
   insert into rls_results values ('RLS-06','user promotes self to super_admin', ok,
     'sqlstate='||err);
 
+  -- RLS-07a asserts the OUTCOME, not the mechanism, and Phase 4 had to correct
+  -- it for that reason. The original form asserted "an exception is raised",
+  -- which is only one of the two ways this write is refused:
+  --
+  --   * when the user is ACTIVE, the row matches the UPDATE policy, the guard
+  --     trigger fires, and 42501 is raised;
+  --   * when the user is BLOCKED, the policy matches ZERO rows, so nothing is
+  --     written and nothing is raised.
+  --
+  -- The second case made the original assertion fail against a live database
+  -- even though the account correctly stayed blocked. It is the same trap this
+  -- file warns about at the top, hit by the file itself. Asserting the value is
+  -- unchanged covers both paths and cannot pass vacuously.
+  declare v_before boolean; v_after boolean;
+  begin
+    perform set_config('role','postgres', true);
+    perform set_config('request.jwt.claims', '', true);
+    update public.profiles set is_blocked = true where id = b;
+    select is_blocked into v_before from public.profiles where id = b;
+
+    perform set_config('request.jwt.claims',
+      json_build_object('sub', b::text, 'role','authenticated')::text, true);
+    perform set_config('role','authenticated', true);
+    begin update public.profiles set is_blocked = false where id = b;
+    exception when others then null; end;
+
+    perform set_config('role','postgres', true);
+    perform set_config('request.jwt.claims', '', true);
+    select is_blocked into v_after from public.profiles where id = b;
+    update public.profiles set is_blocked = false where id = b;
+
+    perform set_config('request.jwt.claims',
+      json_build_object('sub', b::text, 'role','authenticated')::text, true);
+    perform set_config('role','authenticated', true);
+
+    insert into rls_results values ('RLS-07a','blocked user unblocks self', 
+      v_before and v_after, 'before='||v_before||' after='||v_after);
+  end;
+
+  -- The same column in the other direction, where the row IS visible to the
+  -- policy, so the guard trigger is what refuses it.
   ok := false; err := '';
-  begin update public.profiles set is_blocked = false where id = b;
+  begin update public.profiles set is_blocked = true where id = b;
   exception when others then ok := true; err := SQLSTATE; end;
-  insert into rls_results values ('RLS-07a','user edits own is_blocked', ok, 'sqlstate='||err);
+  insert into rls_results values ('RLS-07a2','active user sets own is_blocked', ok,
+    'sqlstate='||err);
 
   ok := false; err := '';
   begin update public.profiles set deleted_at = now() where id = b;
@@ -161,6 +203,25 @@ begin
   insert into rls_results values ('RLS-12','user sets statement status to completed',
     v_status = 'processing', 'status_after='||coalesce(v_status,'<unreadable>'));
 
+  ------------------------------------------- the Phase 4 rate counter -----
+  -- request_rate_log has BOTH its grants revoked and RLS with zero policies,
+  -- so a client gets a hard 42501 rather than an empty result. A user must not
+  -- be able to read their own counter, forge entries, or prune it to reset it.
+  ok := false; err := '';
+  begin select count(*) into n from public.request_rate_log;
+  exception when others then ok := true; err := SQLSTATE; end;
+  insert into rls_results values ('RLS-15a','user reads request_rate_log', ok, 'sqlstate='||err);
+
+  ok := false; err := '';
+  begin insert into public.request_rate_log (user_id, action) values (b, 'process_receipt');
+  exception when others then ok := true; err := SQLSTATE; end;
+  insert into rls_results values ('RLS-15b','user writes request_rate_log', ok, 'sqlstate='||err);
+
+  ok := false; err := '';
+  begin perform public.prune_request_rate_log();
+  exception when others then ok := true; err := SQLSTATE; end;
+  insert into rls_results values ('RLS-15c','user calls prune_request_rate_log', ok, 'sqlstate='||err);
+
   --------------------------------------------------------- as the admin ----
   perform set_config('request.jwt.claims',
     json_build_object('sub', adm::text, 'role','authenticated')::text, true);
@@ -176,6 +237,12 @@ begin
   select count(*) into n from public.profiles;
   insert into rls_results values ('RLS-13c','super admin reads profiles (intended)',
     n > 1, 'rows='||n);
+
+  ok := false; err := '';
+  begin select count(*) into n from public.request_rate_log;
+  exception when others then ok := true; err := SQLSTATE; end;
+  insert into rls_results values ('RLS-15d','super admin reads request_rate_log', ok,
+    'sqlstate='||err);
 
   ------------------------------------------------------- as anon (no JWT) --
   perform set_config('request.jwt.claims', '', true);

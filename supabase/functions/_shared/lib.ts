@@ -182,6 +182,115 @@ export async function assertQuotaAvailable(db: SupabaseClient, userId: string): 
   return WEEKLY_AI_QUOTA - used;
 }
 
+/**
+ * ---------------------------------------------------------------------------
+ * Per-user request rate limiting for the document-processing functions.
+ *
+ * This is NOT the weekly AI quota and must not be confused with it:
+ *
+ *   assertQuotaAvailable  counts SUCCESSES, resets weekly, product allowance
+ *   assertWithinRateLimit counts REQUESTS,  slides continuously, abuse control
+ *
+ * The weekly quota governs generation features only. The intake functions
+ * (receipt OCR, bank statement parsing, loan document scanning) were governed
+ * by nothing at all, so a user could drive storage downloads and parsing as
+ * fast as they could upload. This closes that.
+ *
+ * The attempt is recorded BEFORE the work runs, on purpose. If only successes
+ * were recorded, hammering a path that fails would be free.
+ *
+ * State lives in Postgres, not in module scope: Edge Functions are scaled
+ * horizontally and cold-start often, so an in-process counter would reset
+ * constantly and disagree between instances.
+ * ---------------------------------------------------------------------------
+ */
+export type RateLimitedAction =
+  | 'process_receipt'
+  | 'process_bank_statement'
+  | 'process_loan_document';
+
+type RateLimit = { burst: number; burstSeconds: number; daily: number };
+
+/**
+ * Chosen to sit far above any plausible human session and far below what an
+ * abusive loop would want. Receipts get the loosest budget because photographing
+ * a stack of them one at a time is a normal thing to do; statement and loan
+ * parsing are heavier per call and are done far less often.
+ */
+const RATE_LIMITS: Record<RateLimitedAction, RateLimit> = {
+  process_receipt: { burst: 10, burstSeconds: 600, daily: 40 },
+  process_bank_statement: { burst: 5, burstSeconds: 600, daily: 20 },
+  process_loan_document: { burst: 5, burstSeconds: 600, daily: 20 },
+};
+
+export async function assertWithinRateLimit(
+  db: SupabaseClient,
+  userId: string,
+  action: RateLimitedAction,
+): Promise<void> {
+  const limit = RATE_LIMITS[action];
+  const now = Date.now();
+  const dayFrom = new Date(now - 24 * 60 * 60 * 1000).toISOString();
+  const burstFrom = new Date(now - limit.burstSeconds * 1000).toISOString();
+
+  // One round trip: fetch the day window, derive the burst window from it.
+  const { data, error } = await db
+    .from('request_rate_log')
+    .select('created_at')
+    .eq('user_id', userId)
+    .eq('action', action)
+    .gte('created_at', dayFrom);
+
+  // Fail closed. A limiter that opens when its own storage is unavailable is
+  // not a limiter.
+  if (error) {
+    throw new AppError(
+      'rate_limit_unavailable',
+      'Could not verify your upload allowance. Please try again shortly.',
+      503,
+    );
+  }
+
+  const rows = data ?? [];
+  const inBurst = rows.filter((r) => (r.created_at as string) >= burstFrom).length;
+
+  if (inBurst >= limit.burst) {
+    throw new AppError(
+      'rate_limited',
+      'Too many uploads in a short time. Please wait a few minutes and try again.',
+      429,
+    );
+  }
+  if (rows.length >= limit.daily) {
+    throw new AppError(
+      'rate_limited',
+      "You have reached today's limit for this kind of upload. Please try again tomorrow.",
+      429,
+    );
+  }
+
+  const { error: insertError } = await db
+    .from('request_rate_log')
+    .insert({ user_id: userId, action });
+
+  if (insertError) {
+    throw new AppError(
+      'rate_limit_unavailable',
+      'Could not verify your upload allowance. Please try again shortly.',
+      503,
+    );
+  }
+
+  // Opportunistic retention, ~1 call in 50, so the table does not grow without
+  // bound and no pg_cron dependency is introduced. Failure here is harmless.
+  if (Math.random() < 0.02) {
+    await db.rpc('prune_request_rate_log').then(
+      () => {},
+      () => {},
+    );
+  }
+}
+
 export async function logAiUsage(
   db: SupabaseClient,
   row: {

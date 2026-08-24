@@ -10,6 +10,7 @@
 --                                                       used to prove
 --                                                       non-owner denial)
 --   dev.admin@monetiq.test   / MonetiqDevAdmin!2026    role: super_admin
+--   dev.unverified@monetiq.test / MonetiqDevUnverified!2026  UNVERIFIED, for E2E-01
 --
 -- Rows are written straight into auth.users because this environment has no
 -- Auth Admin API credential available. Passwords are bcrypt-hashed with
@@ -104,5 +105,67 @@ begin
   update public.profiles
      set role = 'super_admin'
    where id = (select id from auth.users where email = 'dev.admin@monetiq.test');
+
+  ---------------------------------------------------------------------------
+  -- A deliberately UNVERIFIED account.
+  --
+  -- E2E-01 asserts that signing in with an unconfirmed address is refused with
+  -- its own actionable message rather than the generic "credentials not
+  -- recognised". That needs an account with email_confirmed_at null, and there
+  -- was none — the assertion could never have passed.
+  --
+  -- It cannot be created through /auth/v1/signup either: GoTrue rejects the
+  -- .test TLD outright as email_address_invalid, and real domains hit the
+  -- built-in mailer's rate limit because no custom SMTP is configured. So it is
+  -- built here the same way the others are.
+  --
+  -- Every writable column is copied from an existing row on purpose. Omitting
+  -- any of them leaves NULLs that GoTrue scans into non-pointer Go types, which
+  -- surfaces on sign-in as a 500 "Database error querying schema" rather than
+  -- anything that names the real problem.
+  ---------------------------------------------------------------------------
+  if not exists (select 1 from auth.users where email = 'dev.unverified@monetiq.test') then
+    declare
+      v_unverified_id uuid := gen_random_uuid();
+      v_cols text;
+      v_vals text;
+    begin
+      select string_agg(quote_ident(column_name), ', ' order by ordinal_position),
+             string_agg(
+               case column_name
+                 when 'id'                 then quote_literal(v_unverified_id)||'::uuid'
+                 when 'email'              then quote_literal('dev.unverified@monetiq.test')
+                 when 'encrypted_password' then 'extensions.crypt('
+                                                ||quote_literal('MonetiqDevUnverified!2026')
+                                                ||', extensions.gen_salt(''bf''))'
+                 when 'email_confirmed_at' then 'null::timestamptz'
+                 when 'last_sign_in_at'    then 'null::timestamptz'
+                 when 'raw_user_meta_data' then quote_literal('{"full_name":"Dev Unverified"}')||'::jsonb'
+                 when 'created_at'         then 'now()'
+                 when 'updated_at'         then 'now()'
+                 else quote_ident(column_name)
+               end, ', ' order by ordinal_position)
+        into v_cols, v_vals
+      from information_schema.columns
+      where table_schema = 'auth' and table_name = 'users'
+        and is_generated = 'NEVER' and identity_generation is null;
+
+      execute format(
+        'insert into auth.users (%s) select %s from auth.users where email = %L',
+        v_cols, v_vals, 'dev.user@monetiq.test'
+      );
+
+      insert into auth.identities (
+        provider_id, user_id, identity_data, provider, last_sign_in_at,
+        created_at, updated_at
+      ) values (
+        v_unverified_id::text, v_unverified_id,
+        jsonb_build_object('sub', v_unverified_id::text,
+                           'email', 'dev.unverified@monetiq.test',
+                           'email_verified', false, 'phone_verified', false),
+        'email', null, now(), now()
+      );
+    end;
+  end if;
 end;
 $$;

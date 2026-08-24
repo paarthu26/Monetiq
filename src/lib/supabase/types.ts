@@ -992,6 +992,27 @@ export type Database = {
           },
         ]
       }
+      request_rate_log: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       role_permissions: {
         Row: {
           created_at: string
@@ -1261,6 +1282,7 @@ export type Database = {
       }
       is_account_active: { Args: { p_uid?: string }; Returns: boolean }
       is_super_admin: { Args: { p_uid?: string }; Returns: boolean }
+      prune_request_rate_log: { Args: never; Returns: undefined }
       touch_last_active: { Args: never; Returns: undefined }
     }
     Enums: {

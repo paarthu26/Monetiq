@@ -18,7 +18,7 @@
 
 import {
   AppError, corsHeaders, errorResponse, json, parseBody, requireActiveAccount,
-  requireUser, serviceClient, assertOwnedPath, z,
+  requireUser, serviceClient, assertOwnedPath, assertWithinRateLimit, z,
 } from '../_shared/lib.ts';
 
 const BUCKET = 'receipts-staging';
@@ -71,10 +71,15 @@ Deno.serve(async (req) => {
     const user = await requireUser(req);
     userId = user.id;
     await requireActiveAccount(db, user.id);
-
     const body = await parseBody(req, Body);
     path = body.path;
     assertOwnedPath(path, user.id);
+
+    // Rate limited here rather than before parseBody: the check must run
+    // before any download or parsing work, but `path` has to be resolved
+    // first so the finally block still deletes the staged file when a
+    // request is refused. A 429 must not leave the upload behind.
+    await assertWithinRateLimit(db, user.id, 'process_receipt');
 
     const { data: file, error: dlError } = await db.storage.from(BUCKET).download(path);
     if (dlError || !file) {

@@ -1,19 +1,34 @@
 import { expect, type Page } from '@playwright/test';
 
 /**
- * Live Supabase credentials for the Phase 1 dev accounts.
+ * Live Supabase credentials for the dev accounts, taken from
+ * `supabase/seed/dev_test_accounts.sql` and verified against the live project.
  *
- * These are development credentials for a throwaway project and must never
- * exist in production. Phase 3 §4.4 asks for them to be recreated through the
- * Auth Admin API so they carry `auth.identities` rows; until that happens
- * Google linking will not work for them.
+ * Phase 3 guessed these and guessed wrong — every journey here would have
+ * failed at sign-in on its first real run. They are checked now.
+ *
+ * The `auth.identities` worry carried since Phase 1 turned out to be unfounded:
+ * all four accounts have a proper `email` identity with a `provider_id`, so
+ * Google linking is not compromised.
+ *
+ * Development credentials for a throwaway project. They must never exist in
+ * production.
  */
-export const USER = { email: 'dev.user@monetiq.test', password: 'DevUser123!' };
-export const ADMIN = { email: 'dev.admin@monetiq.test', password: 'DevAdmin123!' };
-export const SECOND_USER = { email: 'dev.user2@monetiq.test', password: 'DevUser123!' };
+export const USER = {
+  email: 'dev.user@monetiq.test',
+  password: 'MonetiqDevUser!2026',
+};
+export const ADMIN = {
+  email: 'dev.admin@monetiq.test',
+  password: 'MonetiqDevAdmin!2026',
+};
+export const SECOND_USER = {
+  email: 'dev.user2@monetiq.test',
+  password: 'MonetiqDevUser2!2026',
+};
 export const UNVERIFIED = {
   email: 'dev.unverified@monetiq.test',
-  password: 'DevUser123!',
+  password: 'MonetiqDevUnverified!2026',
 };
 
 /** Real sign-in through the real Supabase browser client and middleware. */
