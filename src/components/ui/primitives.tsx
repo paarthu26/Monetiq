@@ -1,9 +1,10 @@
 'use client';
 
-import { Loader2, type LucideIcon } from 'lucide-react';
+import { Eye, EyeOff, Loader2, type LucideIcon } from 'lucide-react';
 import {
   forwardRef,
   useId,
+  useState,
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
   type ReactNode,
@@ -228,6 +229,82 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
     </FieldShell>
   );
 });
+
+/* ----------------------------------------------------------- PasswordInput */
+
+export type PasswordInputProps = Omit<InputProps, 'type'>;
+
+/**
+ * A password field with a reveal toggle.
+ *
+ * Typing a password you cannot see is the single most common cause of a failed
+ * sign-in, and on a phone keyboard it is worse. The toggle is a button rather
+ * than a checkbox so it stays out of the tab order between the field and the
+ * submit button — the eye is there for the mouse and for a deliberate visit,
+ * not something to tab through on every login.
+ *
+ * The field is padded on the right so a long password never runs underneath
+ * the button, and `aria-pressed` tells assistive technology the current state
+ * rather than leaving the label to imply it.
+ */
+export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
+  function PasswordInput({ label, error, hint, id, className, required, ...rest }, ref) {
+    const auto = useId();
+    const inputId = id ?? auto;
+    const errorId = `${inputId}-error`;
+    const hintId = `${inputId}-hint`;
+    const [visible, setVisible] = useState(false);
+
+    return (
+      <FieldShell
+        label={label}
+        htmlFor={inputId}
+        error={error}
+        hint={hint}
+        required={required}
+        errorId={errorId}
+        hintId={hintId}
+      >
+        <div className="relative">
+          <input
+            ref={ref}
+            id={inputId}
+            type={visible ? 'text' : 'password'}
+            required={required}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? errorId : hint ? hintId : undefined}
+            className={cn(CONTROL_BASE, controlTone(!!error), 'h-11 pr-12', className)}
+            {...rest}
+          />
+          <button
+            type="button"
+            // Never a submit button: this sits inside a form and a stray Enter
+            // must still submit the form, not toggle the eye.
+            onClick={() => setVisible((v) => !v)}
+            aria-label={visible ? 'Hide password' : 'Show password'}
+            aria-pressed={visible}
+            aria-controls={inputId}
+            title={visible ? 'Hide password' : 'Show password'}
+            tabIndex={-1}
+            className={cn(
+              'absolute right-1 top-1/2 inline-flex h-9 w-9 -translate-y-1/2',
+              'items-center justify-center rounded-control text-muted',
+              'transition-colors duration-control ease-standard',
+              'hover:bg-cream-200 hover:text-heading',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action',
+            )}
+          >
+            {visible ? (
+              <EyeOff aria-hidden strokeWidth={1.75} className="h-[18px] w-[18px]" />
+            ) : (
+              <Eye aria-hidden strokeWidth={1.75} className="h-[18px] w-[18px]" />
+            )}
+          </button>
+        </div>
+      </FieldShell>
+    );
+  },
+);
 
 /* ---------------------------------------------------------------- Textarea */
 

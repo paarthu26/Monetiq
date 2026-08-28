@@ -6,7 +6,7 @@ import { useState } from 'react';
 
 import { AuthLayout } from '@/components/auth/AuthLayout';
 import { InfoBanner } from '@/components/ui/data';
-import { Button, Checkbox, Input } from '@/components/ui/primitives';
+import { Button, Checkbox, Input, PasswordInput } from '@/components/ui/primitives';
 import { createClient } from '@/lib/supabase/client';
 import { registerSchema } from '@/lib/validation/schemas';
 
@@ -139,9 +139,8 @@ export default function RegisterPage() {
           required
         />
         <div>
-          <Input
+          <PasswordInput
             label="Password"
-            type="password"
             autoComplete="new-password"
             value={form.password}
             onChange={(e) => set('password', e.target.value)}
@@ -165,9 +164,8 @@ export default function RegisterPage() {
             })}
           </ul>
         </div>
-        <Input
+        <PasswordInput
           label="Confirm password"
-          type="password"
           autoComplete="new-password"
           value={form.confirm_password}
           onChange={(e) => set('confirm_password', e.target.value)}

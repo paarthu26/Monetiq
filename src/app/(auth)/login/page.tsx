@@ -6,7 +6,7 @@ import { Suspense, useState } from 'react';
 
 import { AuthLayout } from '@/components/auth/AuthLayout';
 import { InfoBanner } from '@/components/ui/data';
-import { Button, Input, Skeleton } from '@/components/ui/primitives';
+import { Button, Input, PasswordInput, Skeleton } from '@/components/ui/primitives';
 import { createClient } from '@/lib/supabase/client';
 import { loginSchema } from '@/lib/validation/schemas';
 
@@ -116,9 +116,8 @@ function LoginForm() {
           error={errors.email}
           required
         />
-        <Input
+        <PasswordInput
           label="Password"
-          type="password"
           autoComplete="current-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}

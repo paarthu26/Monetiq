@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 
 import { AuthLayout } from '@/components/auth/AuthLayout';
 import { InfoBanner } from '@/components/ui/data';
-import { Button, Input } from '@/components/ui/primitives';
+import { Button, Input, PasswordInput } from '@/components/ui/primitives';
 import { createClient } from '@/lib/supabase/client';
 import { resetPasswordSchema } from '@/lib/validation/schemas';
 
@@ -100,9 +100,8 @@ export default function ResetPasswordPage() {
             <InfoBanner tone="error">{formError}</InfoBanner>
           </div>
         )}
-        <Input
+        <PasswordInput
           label="New password"
-          type="password"
           autoComplete="new-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
@@ -110,9 +109,8 @@ export default function ResetPasswordPage() {
           hint="At least 8 characters."
           required
         />
-        <Input
+        <PasswordInput
           label="Confirm new password"
-          type="password"
           autoComplete="new-password"
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}

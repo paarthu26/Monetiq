@@ -1,12 +1,23 @@
 'use client';
 
-import { Menu, PanelLeftClose, PanelLeftOpen, Search, X } from 'lucide-react';
+import {
+  ChevronDown,
+  LogOut,
+  Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Search,
+  Settings,
+  X,
+} from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 
 import { cn } from '@/lib/cn';
 import { Avatar, Badge } from '@/components/ui/primitives';
+import { ConfirmDialog } from '@/components/ui/overlay';
+import { createClient } from '@/lib/supabase/client';
 import {
   ADMIN_NAV,
   ADMIN_TABS,
@@ -229,6 +240,127 @@ function GlobalSearch({ isAdmin }: { isAdmin: boolean }) {
   );
 }
 
+/**
+ * The account menu in the topbar.
+ *
+ * This replaces an avatar that was only ever a link — to /settings for a user
+ * and to the dashboard for an admin. That left a super admin with NO way to
+ * sign out on desktop: the only sign-out control lived on /admin/more, which
+ * is reachable exclusively from the mobile tab bar, and nothing in ADMIN_NAV
+ * points at it. Signing out is the one action people expect to find under
+ * their own avatar, so it lives there now for both variants.
+ */
+function AccountMenu({ isAdmin, name }: { isAdmin: boolean; name: string }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  // Click-away and Escape. Bound only while the menu is open so the app is not
+  // carrying two document listeners for the entire session.
+  useEffect(() => {
+    if (!open) return;
+
+    function onPointerDown(e: MouseEvent) {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false);
+    }
+
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
+
+  async function signOut() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push('/login');
+    router.refresh();
+  }
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className={cn(
+          'flex items-center gap-2 rounded-control px-1 py-1',
+          'transition-colors duration-control ease-standard hover:bg-cream-200',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action',
+        )}
+      >
+        <Avatar name={name} size="sm" />
+        <span className="hidden max-w-[12ch] truncate text-body-2 text-secondary sm:block">
+          {name}
+        </span>
+        <ChevronDown
+          aria-hidden
+          strokeWidth={1.75}
+          className={cn(
+            'h-4 w-4 shrink-0 text-muted transition-transform duration-control ease-standard',
+            open && 'rotate-180',
+          )}
+        />
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          aria-label="Account"
+          className={cn(
+            'absolute right-0 top-[calc(100%+8px)] z-50 w-56 overflow-hidden',
+            'rounded-card border border-hairline bg-surface py-1 shadow-md',
+          )}
+        >
+          <p className="truncate px-4 py-2 text-caption text-muted">
+            Signed in as <span className="text-secondary">{name}</span>
+          </p>
+          <div aria-hidden className="my-1 h-px bg-hairline" />
+
+          <Link
+            href={isAdmin ? '/admin/more' : '/settings'}
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2.5 px-4 py-2.5 text-body-2 text-body hover:bg-cream-200"
+          >
+            <Settings aria-hidden strokeWidth={1.75} className="h-4 w-4 text-muted" />
+            {isAdmin ? 'All admin sections' : 'Settings'}
+          </Link>
+
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              setConfirming(true);
+            }}
+            className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-body-2 text-error-text hover:bg-error-tint"
+          >
+            <LogOut aria-hidden strokeWidth={1.75} className="h-4 w-4" />
+            Sign out
+          </button>
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={confirming}
+        onClose={() => setConfirming(false)}
+        title="Sign out?"
+        confirmLabel="Sign out"
+        description="You will need to sign in again to get back to your account."
+        onConfirm={signOut}
+      />
+    </div>
+  );
+}
+
 export function AppShell({
   children,
   variant = 'user',
@@ -346,15 +478,10 @@ export function AppShell({
                 <span className="sr-only">unread alerts</span>
               </Link>
             )}
-            <Link
-              href={isAdmin ? '/admin' : '/settings'}
-              className="flex items-center gap-2 rounded-control px-1 py-1 hover:bg-cream-200"
-            >
-              <Avatar name={profile?.full_name ?? 'Monetiq user'} size="sm" />
-              <span className="hidden text-body-2 text-secondary sm:block">
-                {profile?.full_name ?? '—'}
-              </span>
-            </Link>
+            <AccountMenu
+              isAdmin={isAdmin}
+              name={profile?.full_name ?? (isAdmin ? 'Administrator' : 'Monetiq user')}
+            />
           </div>
         </header>
 
