@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useMemo } from 'react';
 
+import { monthStart } from '@/lib/finance';
 import { PageHeader } from '@/components/shell/AppShell';
 import {
   Amount,
@@ -16,7 +17,7 @@ import { Badge, Button, Card, CardHeader, Skeleton } from '@/components/ui/primi
 import { friendlyMessage } from '@/lib/api/errors';
 import { useBudgetProgress, useCategories, useLedger } from '@/lib/queries/hooks';
 
-const MONTH = '2026-08-01';
+const MONTH = monthStart();
 
 export default function CategoryDetailPage() {
   const params = useParams<{ id: string }>();

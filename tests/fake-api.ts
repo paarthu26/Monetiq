@@ -312,7 +312,16 @@ export const api = {
    * the ledger. Never cached, never persisted — editing a past expense changes
    * this immediately, which is the whole point.
    */
+  /**
+   * `month` may be `YYYY-MM` or `YYYY-MM-DD`, matching the live layer.
+   *
+   * The live version used to append `-01` unconditionally, so a full date
+   * became `2026-08-01-01` and every screen showing budget progress broke —
+   * while this mock, which took the string as-is, kept the suite green.
+   * Normalising in both places is what stops that happening twice.
+   */
   async budgetProgress(month: string) {
+    const key = month.slice(0, 7);
     return call(() =>
       computeBudgetProgress(
         db().budgets.map((b) => ({
@@ -325,7 +334,7 @@ export const api = {
           amount: Number(e.amount),
           expense_date: e.expense_date,
         })),
-        month,
+        key,
       ),
     );
   },
@@ -455,6 +464,16 @@ export const api = {
       d.alertSettings = [...d.alertSettings, row];
       return row;
     });
+  },
+
+  /**
+   * The live layer generates any time-driven alerts (EMI reminders) before
+   * reading the feed. There is no scheduler to stand in for offline, and the
+   * fixtures carry the alerts they need, so this is a no-op — it exists so the
+   * mock keeps the same shape as the real API rather than drifting from it.
+   */
+  async refreshDueAlerts(): Promise<void> {
+    return call(() => undefined);
   },
 
   async listNotifications(): Promise<Tables<'alert_notifications'>[]> {

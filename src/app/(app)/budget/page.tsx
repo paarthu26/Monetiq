@@ -3,6 +3,7 @@
 import { PlusCircle, Target } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
+import { monthStart } from '@/lib/finance';
 import { PageHeader } from '@/components/shell/AppShell';
 import { useWriteDisabledReason } from '@/components/shell/BlockedBanner';
 import {
@@ -23,7 +24,7 @@ import {
   useUpsertBudget,
 } from '@/lib/queries/hooks';
 
-const MONTH = '2026-08-01';
+const MONTH = monthStart();
 
 export default function BudgetPage() {
   const budgets = useBudgets();

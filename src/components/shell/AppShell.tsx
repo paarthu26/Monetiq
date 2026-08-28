@@ -1,9 +1,9 @@
 'use client';
 
-import { Menu, X } from 'lucide-react';
+import { Menu, PanelLeftClose, PanelLeftOpen, Search, X } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useEffect, useState, type ReactNode } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 
 import { cn } from '@/lib/cn';
 import { Avatar, Badge } from '@/components/ui/primitives';
@@ -36,31 +36,80 @@ function SidebarRail({
   groups,
   pathname,
   isAdmin,
+  collapsed = false,
+  onToggleCollapse,
 }: {
   groups: NavGroup[];
   pathname: string;
   isAdmin: boolean;
+  /** Desktop only. The drawer is never collapsed — it is dismissed instead. */
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }) {
   return (
     <nav
       aria-label={isAdmin ? 'Admin sections' : 'Main'}
-      className="flex h-full w-sidebar shrink-0 flex-col bg-sidebar-rail px-3 py-5"
+      className={cn(
+        'flex h-full shrink-0 flex-col bg-sidebar-rail py-5',
+        'transition-[width] duration-surface ease-standard',
+        collapsed ? 'w-sidebar-collapsed px-2' : 'w-sidebar px-3',
+      )}
     >
-      <div className="mb-6 flex items-center gap-2 px-2">
-        <Wordmark onDark />
-        {isAdmin && (
-          <span className="rounded-pill bg-action px-2 py-0.5 text-caption font-medium text-white">
-            Admin
-          </span>
+      <div
+        className={cn(
+          'mb-6 flex items-center gap-2',
+          collapsed ? 'justify-center px-0' : 'px-2',
+        )}
+      >
+        {!collapsed && (
+          <>
+            <Wordmark onDark />
+            {isAdmin && (
+              <span className="rounded-pill bg-action px-2 py-0.5 text-caption font-medium text-white">
+                Admin
+              </span>
+            )}
+          </>
+        )}
+        {onToggleCollapse && (
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            aria-expanded={!collapsed}
+            aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
+            title={collapsed ? 'Expand navigation' : 'Collapse navigation'}
+            className={cn(
+              'inline-flex h-9 w-9 items-center justify-center rounded-control',
+              'text-[#B9B7D4] transition-colors duration-control ease-standard',
+              'hover:bg-navy-700 hover:text-white',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70',
+              !collapsed && 'ml-auto',
+            )}
+          >
+            {collapsed ? (
+              <PanelLeftOpen aria-hidden strokeWidth={1.75} className="h-5 w-5" />
+            ) : (
+              <PanelLeftClose aria-hidden strokeWidth={1.75} className="h-5 w-5" />
+            )}
+          </button>
         )}
       </div>
 
       <div className="flex flex-1 flex-col gap-5 overflow-y-auto">
         {groups.map((group) => (
           <div key={group.section}>
-            <p className="px-2 pb-1.5 text-caption font-semibold uppercase tracking-wide text-[#B9B7D4]">
-              {group.section}
-            </p>
+            {collapsed ? (
+              // The label is still needed by a screen reader; only the visual
+              // heading goes away, and a divider keeps the grouping legible.
+              <>
+                <span className="sr-only">{group.section}</span>
+                <div aria-hidden className="mx-2 mb-1.5 h-px bg-white/10" />
+              </>
+            ) : (
+              <p className="px-2 pb-1.5 text-caption font-semibold uppercase tracking-wide text-[#B9B7D4]">
+                {group.section}
+              </p>
+            )}
             <ul className="flex flex-col gap-0.5">
               {group.items.map((item) => {
                 const active = isActive(pathname, item);
@@ -69,8 +118,12 @@ function SidebarRail({
                     <Link
                       href={item.href}
                       aria-current={active ? 'page' : undefined}
+                      // Collapsed, the icon is the only visible affordance, so
+                      // the label has to survive as a tooltip and for AT.
+                      title={collapsed ? item.label : undefined}
                       className={cn(
-                        'flex items-center gap-2.5 rounded-control px-2.5 py-2.5 text-body-1 transition-colors duration-control ease-standard',
+                        'flex items-center rounded-control py-2.5 text-body-1 transition-colors duration-control ease-standard',
+                        collapsed ? 'justify-center px-0' : 'gap-2.5 px-2.5',
                         active
                           ? 'bg-action text-white'
                           : 'text-[#B9B7D4] hover:bg-navy-700 hover:text-white',
@@ -81,7 +134,11 @@ function SidebarRail({
                         strokeWidth={1.75}
                         className="h-[18px] w-[18px] shrink-0"
                       />
-                      <span className="truncate">{item.label}</span>
+                      {collapsed ? (
+                        <span className="sr-only">{item.label}</span>
+                      ) : (
+                        <span className="truncate">{item.label}</span>
+                      )}
                     </Link>
                   </li>
                 );
@@ -122,6 +179,56 @@ function MobileTabBar({ tabs, pathname }: { tabs: NavItem[]; pathname: string })
   );
 }
 
+/**
+ * Global search.
+ *
+ * The topbar had a wide empty gap and no way to look anything up — every
+ * search lived inside the ledger screen, so finding a transaction meant
+ * navigating there first and knowing that was where to go. This submits into
+ * the ledger's own filtered view rather than inventing a second search index.
+ */
+function GlobalSearch({ isAdmin }: { isAdmin: boolean }) {
+  const router = useRouter();
+  const [term, setTerm] = useState('');
+
+  function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    const q = term.trim();
+    if (!q) return;
+    router.push(
+      isAdmin ? `/admin/users?q=${encodeURIComponent(q)}` : `/ledger?q=${encodeURIComponent(q)}`,
+    );
+  }
+
+  return (
+    <form onSubmit={onSubmit} role="search" className="hidden min-w-0 flex-1 sm:block">
+      <label htmlFor="global-search" className="sr-only">
+        {isAdmin ? 'Search users' : 'Search expenses'}
+      </label>
+      <div className="relative max-w-sm">
+        <Search
+          aria-hidden
+          strokeWidth={1.75}
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle"
+        />
+        <input
+          id="global-search"
+          type="search"
+          value={term}
+          onChange={(e) => setTerm(e.target.value)}
+          placeholder={isAdmin ? 'Search users…' : 'Search expenses…'}
+          className={cn(
+            'h-10 w-full rounded-control border border-hairline bg-surface pl-9 pr-3',
+            'text-body-2 text-body placeholder:text-subtle',
+            'transition-colors duration-control ease-standard',
+            'hover:border-border-default focus:border-action focus:outline-none',
+          )}
+        />
+      </div>
+    </form>
+  );
+}
+
 export function AppShell({
   children,
   variant = 'user',
@@ -139,6 +246,7 @@ export function AppShell({
   const unread = notifications?.filter((n) => !n.is_read).length ?? 0;
 
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   // A route change should never leave the drawer hanging open behind the new
   // screen.
@@ -146,12 +254,47 @@ export function AppShell({
     setDrawerOpen(false);
   }, [pathname]);
 
+  /*
+    The collapsed state is remembered per browser. Read in an effect rather
+    than in the initial state so the server and the first client render agree —
+    seeding useState from localStorage hydrates to a different tree and React
+    discards it.
+
+    Storage can throw outright (Safari private mode, blocked site data), and a
+    remembered sidebar width is not worth a crash.
+  */
+  useEffect(() => {
+    try {
+      setCollapsed(window.localStorage.getItem('monetiq:nav-collapsed') === '1');
+    } catch {
+      /* keep the default */
+    }
+  }, []);
+
+  function toggleCollapsed() {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem('monetiq:nav-collapsed', next ? '1' : '0');
+      } catch {
+        /* the toggle still works for this page load */
+      }
+      return next;
+    });
+  }
+
   return (
     <div className="flex min-h-screen bg-page">
       {/* Desktop rail */}
       <div className="hidden md:block">
         <div className="sticky top-0 h-screen">
-          <SidebarRail groups={groups} pathname={pathname} isAdmin={isAdmin} />
+          <SidebarRail
+            groups={groups}
+            pathname={pathname}
+            isAdmin={isAdmin}
+            collapsed={collapsed}
+            onToggleCollapse={toggleCollapsed}
+          />
         </div>
       </div>
 
@@ -192,7 +335,9 @@ export function AppShell({
             <Wordmark />
           </div>
 
-          <div className="ml-auto flex items-center gap-3">
+          <GlobalSearch isAdmin={isAdmin} />
+
+          <div className="ml-auto flex shrink-0 items-center gap-3">
             {!isAdmin && unread > 0 && (
               <Link href="/alerts" className="inline-flex items-center gap-1.5">
                 <Badge tone="error">
@@ -217,6 +362,40 @@ export function AppShell({
         <main id="main" className="flex-1 px-4 pb-24 pt-6 md:px-8 md:pb-12">
           <div className="mx-auto w-full max-w-app">{children}</div>
         </main>
+
+        {/*
+          The privacy policy and terms existed as public routes but nothing
+          inside the signed-in app ever linked to them, so a user had no way to
+          reach either without typing the URL. A footer is the conventional
+          place to look for both.
+        */}
+        <footer className="mt-auto border-t border-hairline px-4 pb-24 pt-5 md:px-8 md:pb-6">
+          <div className="mx-auto flex w-full max-w-app flex-wrap items-center gap-x-5 gap-y-2">
+            <p className="text-caption text-muted">© {new Date().getFullYear()} Monetiq</p>
+            <nav aria-label="Legal" className="flex flex-wrap gap-x-5 gap-y-2">
+              <Link
+                href="/privacy"
+                className="text-caption text-secondary hover:text-action hover:underline"
+              >
+                Privacy policy
+              </Link>
+              <Link
+                href="/terms"
+                className="text-caption text-secondary hover:text-action hover:underline"
+              >
+                Terms &amp; conditions
+              </Link>
+              {!isAdmin && (
+                <Link
+                  href="/help-desk"
+                  className="text-caption text-secondary hover:text-action hover:underline"
+                >
+                  Help &amp; support
+                </Link>
+              )}
+            </nav>
+          </div>
+        </footer>
       </div>
 
       <MobileTabBar tabs={tabs} pathname={pathname} />

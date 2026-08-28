@@ -11,9 +11,11 @@ import {
   Pie,
   PieChart,
   ResponsiveContainer,
+  Sector,
   Tooltip as RTooltip,
   XAxis,
   YAxis,
+  type PieSectorDataItem,
 } from 'recharts';
 import { useEffect, useRef, type ReactNode } from 'react';
 
@@ -59,18 +61,31 @@ function ChartFrame({
     user would land on something a screen reader never announces.
 
     The accessible content here is the sr-only data table below, so the visual
-    chart is taken out of the focus order entirely. React 18 does not render the
-    `inert` attribute (that arrived in React 19), so the DOM property is set
-    directly, with an explicit tabindex sweep as the fallback for browsers that
-    do not implement `inert`.
+    chart is taken out of the FOCUS order — and only the focus order.
+
+    This used to set `el.inert = true`, which does remove it from the focus
+    order but also disables pointer events on the entire subtree. That silently
+    killed every hover interaction in the app: no tooltips, no slice highlight,
+    nothing. Sweeping tabindex achieves the accessibility goal on its own and
+    leaves the mouse alone.
+
+    The sweep runs again on mutation because Recharts re-creates its wrapper on
+    resize and on data changes, restoring `tabindex="0"` each time.
   */
   useEffect(() => {
     const el = visualRef.current;
     if (!el) return;
-    el.inert = true;
-    el.querySelectorAll<HTMLElement>('[tabindex]:not([tabindex="-1"])').forEach((node) => {
-      node.tabIndex = -1;
-    });
+
+    const sweep = () => {
+      el.querySelectorAll<HTMLElement>('[tabindex]:not([tabindex="-1"])').forEach((node) => {
+        node.tabIndex = -1;
+      });
+    };
+
+    sweep();
+    const observer = new MutationObserver(sweep);
+    observer.observe(el, { childList: true, subtree: true, attributeFilter: ['tabindex'] });
+    return () => observer.disconnect();
   }, [data, children]);
 
   return (
@@ -102,6 +117,14 @@ function ChartFrame({
   );
 }
 
+/**
+ * The hovered slice grows outward and the others step back, so the segment
+ * under the pointer is unmistakable before the tooltip is even read.
+ *
+ * Recharts 3 tracks which slice is hovered on its own — `activeIndex` was
+ * removed in that major — so the highlight is expressed purely as the pair of
+ * shapes it renders for the active and inactive states.
+ */
 export function CategoryDonut({
   title,
   data,
@@ -112,9 +135,31 @@ export function CategoryDonut({
   return (
     <ChartFrame title={title} data={data} valueLabel="Amount">
       <PieChart>
-        <Pie data={data} dataKey="value" nameKey="name" innerRadius="58%" outerRadius="86%">
+        <Pie
+          data={data}
+          dataKey="value"
+          nameKey="name"
+          innerRadius="58%"
+          outerRadius="86%"
+          activeShape={(props: PieSectorDataItem) => (
+            <Sector
+              {...props}
+              outerRadius={(props.outerRadius ?? 0) + 8}
+              style={{ filter: 'drop-shadow(0 2px 6px rgba(30,27,75,.28))' }}
+            />
+          )}
+          inactiveShape={(props: PieSectorDataItem) => (
+            <Sector {...props} opacity={0.4} />
+          )}
+        >
           {data.map((_, i) => (
-            <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+            <Cell
+              key={i}
+              fill={CHART_COLORS[i % CHART_COLORS.length]}
+              // A hairline gap keeps adjacent slices readable once one lifts.
+              stroke="#FFFFFF"
+              strokeWidth={2}
+            />
           ))}
         </Pie>
         <RTooltip

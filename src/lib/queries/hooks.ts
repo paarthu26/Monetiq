@@ -53,8 +53,21 @@ export const useDebt = (id: string) =>
 export const useAlertSettings = () =>
   useQuery({ queryKey: qk.alertSettings, queryFn: () => api.listAlertSettings() });
 
+/**
+ * Asks the server to raise any alerts that have fallen due before reading the
+ * feed, so a reminder appears the first time the user looks rather than the
+ * time after. `refreshDueAlerts` is idempotent, and a failure there must not
+ * cost the user their existing alerts — so it is allowed to fail quietly and
+ * the read proceeds either way.
+ */
 export const useNotifications = () =>
-  useQuery({ queryKey: qk.notifications, queryFn: () => api.listNotifications() });
+  useQuery({
+    queryKey: qk.notifications,
+    queryFn: async () => {
+      await api.refreshDueAlerts().catch(() => undefined);
+      return api.listNotifications();
+    },
+  });
 
 export const useQuota = () =>
   useQuery({ queryKey: qk.quota, queryFn: () => api.quotaStatus() });

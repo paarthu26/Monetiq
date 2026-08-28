@@ -83,14 +83,17 @@ export default function AlertsPage() {
       <PageHeader title="Alerts" description="What Monetiq will tell you about, and when." />
 
       {/*
-        Phase 1 has storage and UI for alerts but nothing that fires them and no
-        push delivery. Saying so beats letting the user believe alerts are live.
+        Alerts are generated for real now: overspending, budget limits and
+        unusual transactions are raised the moment an expense is recorded, and
+        EMI reminders are produced when this screen is opened. What is still
+        missing is delivery OUTSIDE the app — web push needs VAPID keys — so
+        the banner says exactly that rather than implying nothing works.
       */}
       <div className="mb-4">
-        <InfoBanner tone="warning" title="Alerts are not being delivered yet" testId="alerts-engine-gap">
-          Thresholds are saved, but nothing currently generates alerts automatically and
-          web push is not connected. The entries below are examples of what you will see
-          once delivery is switched on.
+        <InfoBanner tone="info" title="Alerts appear here, not on your phone yet" testId="alerts-engine-gap">
+          Monetiq raises alerts against the thresholds you set below and shows them on
+          this screen. Push notifications outside the app are not connected yet, so check
+          back here or watch the badge in the header.
         </InfoBanner>
       </div>
 
@@ -248,6 +251,14 @@ export default function AlertsPage() {
                             label={`Threshold (${t.unit})`}
                             type="number"
                             defaultValue={saved?.threshold_value ?? ''}
+                            // Enabled with no threshold is the one combination
+                            // that silently never fires, so it is called out
+                            // rather than left to be discovered.
+                            hint={
+                              enabled && saved?.threshold_value == null
+                                ? 'Set a value — this alert cannot fire without one.'
+                                : undefined
+                            }
                             // A disabled alert type greys its threshold: there
                             // is nothing for the number to do.
                             disabled={!enabled || !!writeDisabled}

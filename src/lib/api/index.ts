@@ -420,8 +420,20 @@ export const api = {
    * SECURITY INVOKER, so RLS scopes it to the caller.
    */
   async budgetProgress(month: string): Promise<BudgetProgressRow[]> {
+    /*
+      Accepts `YYYY-MM` or `YYYY-MM-DD`.
+
+      This used to unconditionally append `-01`, so a caller passing a full
+      date produced `2026-08-01-01` — which Postgres rejects outright. Every
+      screen that shows budget progress passes a full date, so the dashboard,
+      the budget screen and the category detail screen all failed with
+      "something went wrong". The offline mock took the month string as-is and
+      never appended anything, which is why the suite stayed green while the
+      live app was broken.
+    */
+    const p_month = /^\d{4}-\d{2}$/.test(month) ? `${month}-01` : month;
     return read('budget', async (supa) => {
-      const rows = unwrap(await supa.rpc('budget_progress', { p_month: `${month}-01` }));
+      const rows = unwrap(await supa.rpc('budget_progress', { p_month }));
       return (rows ?? []).map((r) => ({
         budget_id: r.budget_id,
         category_id: r.category_id,
@@ -532,10 +544,24 @@ export const api = {
   },
 
   /**
-   * Nothing writes `alert_notifications` yet — there is no alerts engine
-   * (Phase 1 open issue 9, still open). This reads whatever exists, which in
-   * practice is nothing, and the screen says so rather than pretending.
+   * Generates any time-driven alerts that have come due for this user.
+   *
+   * The spend-driven alert types (overspending, budget limit, unusual
+   * transaction) are raised by a trigger the moment an expense is recorded, so
+   * they need nothing here. EMI reminders are the exception: no user action
+   * makes an instalment fall due, so something has to look. Rather than take a
+   * scheduler dependency, the app asks when it opens an alerts surface.
+   *
+   * The RPC is idempotent — each reminder carries a dedupe key naming the
+   * instalment it refers to — so calling this on every load cannot produce
+   * duplicates.
    */
+  async refreshDueAlerts(): Promise<void> {
+    return read('notification', async (supa) => {
+      await supa.rpc('refresh_due_alerts');
+    });
+  },
+
   async listNotifications(): Promise<Tables<'alert_notifications'>[]> {
     return read('notification', async (supa) =>
       unwrap(

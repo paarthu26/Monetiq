@@ -222,6 +222,27 @@ begin
   exception when others then ok := true; err := SQLSTATE; end;
   insert into rls_results values ('RLS-15c','user calls prune_request_rate_log', ok, 'sqlstate='||err);
 
+  ------------------------------------------- the alerts engine (Phase 5) --
+  -- The engine writes alert_notifications on the user's behalf, so the whole
+  -- point is that the user still cannot. Only refresh_due_alerts is exposed,
+  -- and it is scoped to auth.uid() internally.
+  ok := false; err := '';
+  begin perform public.raise_alert(b, 'overspending', 'forged', 'x');
+  exception when others then ok := true; err := SQLSTATE; end;
+  insert into rls_results values ('RLS-16a','user calls raise_alert', ok, 'sqlstate='||err);
+
+  ok := false; err := '';
+  begin perform public.evaluate_spend_alerts(b, null, current_date);
+  exception when others then ok := true; err := SQLSTATE; end;
+  insert into rls_results values ('RLS-16b','user calls evaluate_spend_alerts', ok,
+    'sqlstate='||err);
+
+  ok := true; err := '';
+  begin perform public.refresh_due_alerts();
+  exception when others then ok := false; err := SQLSTATE; end;
+  insert into rls_results values ('RLS-16c','user calls refresh_due_alerts (allowed)', ok,
+    'sqlstate='||err);
+
   --------------------------------------------------------- as the admin ----
   perform set_config('request.jwt.claims',
     json_build_object('sub', adm::text, 'role','authenticated')::text, true);
@@ -261,6 +282,12 @@ begin
   begin perform public.is_super_admin();
   exception when others then ok := true; err := SQLSTATE; end;
   insert into rls_results values ('RLS-14e','anon calls is_super_admin', ok, 'sqlstate='||err);
+
+  ok := false; err := '';
+  begin perform public.refresh_due_alerts();
+  exception when others then ok := true; err := SQLSTATE; end;
+  insert into rls_results values ('RLS-16d','anon calls refresh_due_alerts', ok,
+    'sqlstate='||err);
 
   ---------------------------------------------- blocked account (08 / 09) --
   perform set_config('role','postgres', true);

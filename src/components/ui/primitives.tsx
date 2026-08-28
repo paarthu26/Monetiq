@@ -448,7 +448,13 @@ export function Toggle({
   return (
     <div className="flex items-start justify-between gap-4">
       <div className="min-w-0">
-        <label htmlFor={fieldId} className="block text-body-1 font-medium text-body">
+        <label
+          htmlFor={fieldId}
+          className={cn(
+            'block text-body-1 font-medium text-body',
+            !disabled && 'cursor-pointer',
+          )}
+        >
           {label}
         </label>
         {description && (
@@ -466,16 +472,29 @@ export function Toggle({
         disabled={disabled}
         onClick={() => onChange(!checked)}
         className={cn(
-          'relative h-6 w-11 shrink-0 rounded-pill transition-colors duration-control ease-standard',
-          checked ? 'bg-action' : 'bg-slate-200',
-          disabled && 'cursor-not-allowed opacity-50',
+          'group relative h-7 w-[52px] shrink-0 rounded-pill p-0.5',
+          'transition-colors duration-control ease-standard',
+          // A visible ring inset gives the track an edge, so an off switch
+          // still reads as a control rather than a flat grey bar.
+          'ring-1 ring-inset',
+          checked
+            ? 'bg-action ring-action-press/40 hover:bg-action-hover'
+            : 'bg-slate-200 ring-black/[.08] hover:bg-slate-300',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action focus-visible:ring-offset-2',
+          disabled
+            ? 'cursor-not-allowed opacity-50'
+            : 'cursor-pointer active:[&>span]:w-7',
         )}
       >
         <span
           aria-hidden
           className={cn(
-            'absolute top-0.5 h-5 w-5 rounded-circle bg-white shadow-sm transition-transform duration-control ease-standard',
-            checked ? 'translate-x-[22px]' : 'translate-x-0.5',
+            'block h-6 w-6 rounded-circle bg-white shadow-md',
+            // Width is animated too, so pressing squashes the knob slightly —
+            // the small physical cue that makes a switch feel like a switch.
+            'transition-all duration-control ease-standard',
+            checked ? 'translate-x-[24px]' : 'translate-x-0',
+            'motion-reduce:transition-none',
           )}
         />
       </button>
@@ -561,15 +580,29 @@ export function Card({
   children,
   className,
   as: Tag = 'div',
+  interactive = true,
 }: {
   children: ReactNode;
   className?: string;
   as?: 'div' | 'section' | 'article' | 'li';
+  /**
+   * Lift the card on hover. On by default so every surface in the app responds
+   * to the pointer — previously nothing did, and the whole UI felt inert.
+   * Turn it off for a card that is purely a container inside another card,
+   * where a second lift reads as a glitch rather than a response.
+   */
+  interactive?: boolean;
 }) {
   return (
     <Tag
       className={cn(
         'rounded-card border border-hairline bg-surface p-5 shadow-sm',
+        interactive &&
+          'transition-[box-shadow,border-color,transform] duration-surface ease-standard ' +
+            'hover:-translate-y-0.5 hover:border-border-default hover:shadow-md ' +
+            // Someone who has asked for less motion still gets the shadow and
+            // the border change; they just do not get the movement.
+            'motion-reduce:hover:translate-y-0 motion-reduce:transition-[box-shadow,border-color]',
         className,
       )}
     >

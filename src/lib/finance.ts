@@ -236,3 +236,74 @@ export function savingsRatePct(income: number, expenses: number): number {
 function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
+
+/* ------------------------------------------------------- calendar helpers */
+
+/**
+ * Month helpers.
+ *
+ * These exist because the screens hardcoded `'2026-08-01'` as "this month".
+ * That silently shows the wrong month the moment the calendar moves on, and it
+ * is the kind of bug nobody notices until a user opens the app in September
+ * and sees an empty dashboard.
+ */
+
+/** First day of the month containing `now`, as `YYYY-MM-DD`. */
+export function monthStart(now: Date = new Date()): string {
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+}
+
+/** Last day of the month containing `now`, as `YYYY-MM-DD`. Day 0 of the next month. */
+export function monthEnd(now: Date = new Date()): string {
+  const d = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+    d.getDate(),
+  ).padStart(2, '0')}`;
+}
+
+/** `YYYY-01-01` / `YYYY-12-31` for the year containing `now`. */
+export function yearStart(now: Date = new Date()): string {
+  return `${now.getFullYear()}-01-01`;
+}
+export function yearEnd(now: Date = new Date()): string {
+  return `${now.getFullYear()}-12-31`;
+}
+
+/** "August 2026" for a `YYYY-MM` or `YYYY-MM-DD` key. */
+export function formatMonthLabel(key: string): string {
+  const [y, m] = key.split('-');
+  const date = new Date(Number(y), Number(m) - 1, 1);
+  return date.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+}
+
+/** "Aug 2026" — the short form the chart axis uses. */
+export function formatMonthShort(key: string): string {
+  const [y, m] = key.split('-');
+  const date = new Date(Number(y), Number(m) - 1, 1);
+  return date.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+}
+
+/**
+ * Every `YYYY-MM` key from `from` to `to` inclusive.
+ *
+ * The income-against-spending chart needs this: its month axis has to come
+ * from the selected range, not from whichever months happen to contain an
+ * expense, or months where you spent nothing vanish from the chart entirely.
+ */
+export function monthsBetween(from: string, to: string): string[] {
+  const [fy, fm] = from.split('-').map(Number);
+  const [ty, tm] = to.split('-').map(Number);
+  const out: string[] = [];
+  let y = fy;
+  let m = fm;
+  // Guard against an inverted or absurd range producing an unbounded loop.
+  for (let i = 0; i < 600 && (y < ty || (y === ty && m <= tm)); i++) {
+    out.push(`${y}-${String(m).padStart(2, '0')}`);
+    m += 1;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+  }
+  return out;
+}

@@ -25,7 +25,12 @@ import {
 } from '@/components/ui/data';
 import { Button, Card, CardHeader, Skeleton } from '@/components/ui/primitives';
 import { friendlyMessage } from '@/lib/api/errors';
-import { monthlyRecurringIncome } from '@/lib/finance';
+import {
+  formatMonthLabel,
+  monthEnd,
+  monthStart,
+  monthlyRecurringIncome,
+} from '@/lib/finance';
 import {
   useBudgetProgress,
   useCategories,
@@ -34,11 +39,13 @@ import {
   useNotifications,
 } from '@/lib/queries/hooks';
 
-const MONTH = '2026-08-01';
+// Derived, not hardcoded: a fixed date here shows the wrong month forever.
+const MONTH = monthStart();
+const MONTH_END = monthEnd();
 
 export default function DashboardPage() {
   const ledger = useLedger({ page: 1, pageSize: 5 });
-  const monthLedger = useLedger({ from: '2026-08-01', to: '2026-08-31', pageSize: 500 });
+  const monthLedger = useLedger({ from: MONTH, to: MONTH_END, pageSize: 500 });
   const income = useIncomeSources();
   const budgets = useBudgetProgress(MONTH);
   const notifications = useNotifications();
@@ -142,7 +149,7 @@ export default function DashboardPage() {
     <>
       <PageHeader
         title="Dashboard"
-        description="August 2026"
+        description={formatMonthLabel(MONTH)}
         actions={
           <>
             <Link href="/expenses/scan">

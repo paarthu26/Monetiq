@@ -229,6 +229,7 @@ export type Database = {
         Row: {
           alert_type: string
           created_at: string
+          dedupe_key: string | null
           id: string
           is_read: boolean
           message: string
@@ -237,6 +238,7 @@ export type Database = {
         Insert: {
           alert_type: string
           created_at?: string
+          dedupe_key?: string | null
           id?: string
           is_read?: boolean
           message: string
@@ -245,6 +247,7 @@ export type Database = {
         Update: {
           alert_type?: string
           created_at?: string
+          dedupe_key?: string | null
           id?: string
           is_read?: boolean
           message?: string
@@ -1283,6 +1286,7 @@ export type Database = {
       is_account_active: { Args: { p_uid?: string }; Returns: boolean }
       is_super_admin: { Args: { p_uid?: string }; Returns: boolean }
       prune_request_rate_log: { Args: never; Returns: undefined }
+      refresh_due_alerts: { Args: never; Returns: undefined }
       touch_last_active: { Args: never; Returns: undefined }
     }
     Enums: {

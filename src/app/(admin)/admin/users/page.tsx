@@ -2,6 +2,7 @@
 
 import { SearchX, Users } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 
 import { PageHeader } from '@/components/shell/AppShell';
@@ -21,7 +22,9 @@ function statusOf(u: Tables<'profiles'>): { label: string; tone: 'success' | 'er
 
 export default function AdminUsersPage() {
   const users = useAdminUsers();
-  const [search, setSearch] = useState('');
+  // Seeded from the topbar's global search (?q=), same as the user ledger.
+  const initialSearch = useSearchParams()?.get('q') ?? '';
+  const [search, setSearch] = useState(initialSearch);
   const [status, setStatus] = useState<StatusFilter>('all');
 
   const filtered = (users.data ?? []).filter((u) => {

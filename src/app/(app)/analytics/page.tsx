@@ -15,15 +15,26 @@ import {
 import { CategoryDonutSection, IncomeExpenseBars } from '@/components/ui/charts';
 import { Card, CardHeader, Input, Skeleton } from '@/components/ui/primitives';
 import { Tabs } from '@/components/ui/overlay';
-import { monthlyRecurringIncome, savingsRatePct } from '@/lib/finance';
+import {
+  formatMonthShort,
+  monthEnd,
+  monthStart,
+  monthlyRecurringIncome,
+  monthsBetween,
+  savingsRatePct,
+  yearEnd,
+  yearStart,
+} from '@/lib/finance';
 import { friendlyMessage } from '@/lib/api/errors';
 import { useCategories, useIncomeSources, useLedger } from '@/lib/queries/hooks';
 
 type RangeMode = 'monthly' | 'yearly' | 'custom';
 
+// Derived from today, not hardcoded — a fixed range shows the wrong period
+// the moment the calendar moves on.
 const RANGES: Record<Exclude<RangeMode, 'custom'>, { from: string; to: string }> = {
-  monthly: { from: '2026-08-01', to: '2026-08-31' },
-  yearly: { from: '2026-01-01', to: '2026-12-31' },
+  monthly: { from: monthStart(), to: monthEnd() },
+  yearly: { from: yearStart(), to: yearEnd() },
 };
 
 /**
@@ -34,8 +45,8 @@ const RANGES: Record<Exclude<RangeMode, 'custom'>, { from: string; to: string }>
  */
 export default function AnalyticsPage() {
   const [mode, setMode] = useState<RangeMode>('monthly');
-  const [customFrom, setCustomFrom] = useState('2026-06-01');
-  const [customTo, setCustomTo] = useState('2026-08-31');
+  const [customFrom, setCustomFrom] = useState(monthStart());
+  const [customTo, setCustomTo] = useState(monthEnd());
 
   const rangeInvalid = mode === 'custom' && Boolean(customFrom && customTo && customTo < customFrom);
 
@@ -61,14 +72,21 @@ export default function AnalyticsPage() {
   const rows = useMemo(() => ledger.data?.rows ?? [], [ledger.data]);
   const spend = rows.reduce((s, r) => s + Number(r.amount), 0);
 
-  const monthsInRange = mode === 'yearly' ? 12 : mode === 'monthly' ? 1 : 3;
-  const totalIncome =
-    monthlyRecurringIncome(
-      (income.data ?? []).map((i) => ({
-        amount: Number(i.amount),
-        frequency: i.frequency as 'one_time' | 'monthly',
-      })),
-    ) * monthsInRange;
+  // Every month the selected range covers, whether or not anything was spent
+  // in it. Driving the axis off the ledger instead made months with no
+  // spending disappear from the chart.
+  const monthKeys = useMemo(
+    () => (rangeInvalid ? [] : monthsBetween(range.from.slice(0, 7), range.to.slice(0, 7))),
+    [rangeInvalid, range.from, range.to],
+  );
+
+  const perMonthIncome = monthlyRecurringIncome(
+    (income.data ?? []).map((i) => ({
+      amount: Number(i.amount),
+      frequency: i.frequency as 'one_time' | 'monthly',
+    })),
+  );
+  const totalIncome = perMonthIncome * Math.max(1, monthKeys.length);
 
   const breakdown = useMemo(() => {
     const out: Record<string, number> = {};
@@ -81,17 +99,30 @@ export default function AnalyticsPage() {
     return out;
   }, [rows, categoryById]);
 
+  /*
+    Income against spending, per month.
+
+    The previous version divided the whole range's income by the number of
+    months that *contained an expense*, which is not a quantity that means
+    anything. On the yearly range with two spending months it reported six
+    times the real monthly income, and every month with no spending was
+    missing from the chart altogether.
+
+    Each month simply carries the recurring monthly income and its own
+    expense total, which is what the chart claims to show.
+  */
   const byMonth = useMemo(() => {
-    const map = new Map<string, number>();
+    const spentByMonth = new Map<string, number>();
     rows.forEach((r) => {
       const key = r.expense_date.slice(0, 7);
-      map.set(key, (map.get(key) ?? 0) + Number(r.amount));
+      spentByMonth.set(key, (spentByMonth.get(key) ?? 0) + Number(r.amount));
     });
-    const perMonthIncome = totalIncome / Math.max(1, map.size);
-    return Array.from(map.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([name, expense]) => ({ name, expense, income: perMonthIncome }));
-  }, [rows, totalIncome]);
+    return monthKeys.map((key) => ({
+      name: formatMonthShort(key),
+      expense: spentByMonth.get(key) ?? 0,
+      income: perMonthIncome,
+    }));
+  }, [rows, monthKeys, perMonthIncome]);
 
   return (
     <>

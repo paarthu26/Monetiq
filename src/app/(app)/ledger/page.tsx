@@ -2,6 +2,7 @@
 
 import { PlusCircle, ScanLine, SearchX, Wallet } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
 
 import { PageHeader } from '@/components/shell/AppShell';
@@ -25,7 +26,10 @@ import type { Tables } from '@/lib/supabase/types';
 const PAGE_SIZE = 25;
 
 export default function LedgerPage() {
-  const [search, setSearch] = useState('');
+  // The topbar's global search lands here as ?q=, so a term typed anywhere in
+  // the app arrives with the ledger already filtered by it.
+  const initialSearch = useSearchParams()?.get('q') ?? '';
+  const [search, setSearch] = useState(initialSearch);
   const [categoryId, setCategoryId] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
