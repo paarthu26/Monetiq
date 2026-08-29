@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Motion, mirrored from tokens/motion.css. Used by non-Tailwind
+       transitions (progress fills, dial sweeps) where a raw value is clearer. */
+    --ease-standard: cubic-bezier(0.2, 0.6, 0.25, 1);
+    --duration-control: 140ms;
+    --duration-surface: 220ms;
+    --duration-overlay: 340ms;
+    --duration-value: 520ms;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-page text-body font-sans text-body-1 antialiased;
+  }
+
+  h1 { @apply text-h1 font-bold text-heading; }
+  h2 { @apply text-h2 font-semibold text-heading; }
+  h3 { @apply text-h3 font-semibold text-heading; }
+  h4 { @apply text-h4 font-medium text-heading; }
+
+  /* One visible focus treatment everywhere. Section 7 requires it and the
+     design system defines the ring, so nothing opts out of it. */
+  :focus-visible {
+    @apply outline-none shadow-focus rounded-[inherit];
+  }
+
+  /* Respect a user's reduced-motion preference rather than animating anyway. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* Every monetary amount uses this so ledger columns align down the page.
+     Applied by <Amount>; use that rather than reaching for this directly. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+
+  .skeleton {
+    @apply animate-pulse rounded bg-sunken;
+  }
+
+  /* Visible only to screen readers — for labels that would otherwise be
+     conveyed by position or icon alone. */
+  .sr-only-focusable:not(:focus):not(:focus-within) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+}
