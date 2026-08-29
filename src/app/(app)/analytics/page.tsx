@@ -12,11 +12,15 @@ import {
   InfoBanner,
   StatCard,
 } from '@/components/ui/data';
-import { CategoryDonutSection, IncomeExpenseBars } from '@/components/ui/charts';
-import { Card, CardHeader, Input, Skeleton } from '@/components/ui/primitives';
+import {
+  CategoryDonutSection,
+  IncomeExpenseSavingsTrend,
+  type TrendPoint,
+} from '@/components/ui/charts';
+import { Button, Card, CardHeader, Input, Skeleton } from '@/components/ui/primitives';
 import { Tabs } from '@/components/ui/overlay';
 import {
-  formatMonthShort,
+  formatINR,
   monthEnd,
   monthStart,
   monthlyRecurringIncome,
@@ -26,7 +30,12 @@ import {
   yearStart,
 } from '@/lib/finance';
 import { friendlyMessage } from '@/lib/api/errors';
-import { useCategories, useIncomeSources, useLedger } from '@/lib/queries/hooks';
+import {
+  useAnalyticsRollup,
+  useCategories,
+  useIncomeSources,
+  useLedger,
+} from '@/lib/queries/hooks';
 
 type RangeMode = 'monthly' | 'yearly' | 'custom';
 
@@ -38,6 +47,49 @@ const RANGES: Record<Exclude<RangeMode, 'custom'>, { from: string; to: string }>
 };
 
 /**
+ * The trend chart's own time range.
+ *
+ * Deliberately separate from the page's range tabs above, which drive the
+ * summary cards and the category donut. The trend reaches back up to two
+ * years, far beyond what those cards are asking about, so tying the two
+ * together would silently widen the rest of the page.
+ */
+type TrendRange = '6m' | '1y' | '2y' | 'custom';
+
+/** Inclusive `YYYY-MM` bounds ending with the current month. */
+function trendBounds(range: TrendRange, months: number): { from: string; to: string } {
+  const now = new Date();
+  const to = monthEnd(now);
+  const back = range === '6m' ? 5 : range === '1y' ? 11 : range === '2y' ? 23 : months;
+  const start = new Date(now.getFullYear(), now.getMonth() - back, 1);
+  return { from: monthStart(start), to };
+}
+
+function TrendSummary({ points }: { points: TrendPoint[] }) {
+  const income = points.reduce((s, p) => s + p.income, 0);
+  const expense = points.reduce((s, p) => s + p.expense, 0);
+  const savings = income - expense;
+
+  const cells = [
+    { label: 'Total income', value: formatINR(income) },
+    { label: 'Total expenses', value: formatINR(expense) },
+    { label: 'Total savings', value: formatINR(savings) },
+    { label: 'Savings rate', value: `${savingsRatePct(income, expense)}%` },
+  ];
+
+  return (
+    <dl className="mb-4 grid grid-cols-2 gap-x-4 gap-y-3 border-b border-hairline pb-4 sm:grid-cols-4">
+      {cells.map((c) => (
+        <div key={c.label} className="min-w-0">
+          <dt className="truncate text-caption text-muted">{c.label}</dt>
+          <dd className="tabular mt-0.5 truncate text-h4 font-medium text-heading">{c.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/**
  * Analytics reads the EXPENSE LEDGER only.
  *
  * Bank statement transactions are a structurally separate feature and are not
@@ -45,6 +97,11 @@ const RANGES: Record<Exclude<RangeMode, 'custom'>, { from: string; to: string }>
  */
 export default function AnalyticsPage() {
   const [mode, setMode] = useState<RangeMode>('monthly');
+
+  // The trend chart's own controls, independent of the page range above.
+  const [trendRange, setTrendRange] = useState<TrendRange>('6m');
+  const [trendFrom, setTrendFrom] = useState(trendBounds('6m', 6).from);
+  const [trendTo, setTrendTo] = useState(trendBounds('6m', 6).to);
   const [customFrom, setCustomFrom] = useState(monthStart());
   const [customTo, setCustomTo] = useState(monthEnd());
 
@@ -88,6 +145,32 @@ export default function AnalyticsPage() {
   );
   const totalIncome = perMonthIncome * Math.max(1, monthKeys.length);
 
+  /* ------------------------------------------------- the trend chart data */
+
+  const trendWindow =
+    trendRange === 'custom'
+      ? { from: trendFrom, to: trendTo }
+      : trendBounds(trendRange, 6);
+  const trendInvalid = Boolean(trendWindow.to < trendWindow.from);
+
+  // Aggregated in Postgres. Two years of expenses would be thousands of rows
+  // to sum in the browser, and a paged read would truncate the total rather
+  // than merely slow it down.
+  const rollup = useAnalyticsRollup(trendWindow.from, trendWindow.to, !trendInvalid);
+
+  const trendPoints = useMemo<TrendPoint[]>(() => {
+    if (trendInvalid) return [];
+    const spent = new Map(
+      (rollup.data?.byMonth ?? []).map((m) => [m.month, Number(m.total)]),
+    );
+    return monthsBetween(trendWindow.from.slice(0, 7), trendWindow.to.slice(0, 7)).map(
+      (month) => {
+        const expense = spent.get(month) ?? 0;
+        return { month, income: perMonthIncome, expense, savings: perMonthIncome - expense };
+      },
+    );
+  }, [rollup.data, trendWindow.from, trendWindow.to, trendInvalid, perMonthIncome]);
+
   const breakdown = useMemo(() => {
     const out: Record<string, number> = {};
     rows.forEach((r) => {
@@ -98,31 +181,6 @@ export default function AnalyticsPage() {
     });
     return out;
   }, [rows, categoryById]);
-
-  /*
-    Income against spending, per month.
-
-    The previous version divided the whole range's income by the number of
-    months that *contained an expense*, which is not a quantity that means
-    anything. On the yearly range with two spending months it reported six
-    times the real monthly income, and every month with no spending was
-    missing from the chart altogether.
-
-    Each month simply carries the recurring monthly income and its own
-    expense total, which is what the chart claims to show.
-  */
-  const byMonth = useMemo(() => {
-    const spentByMonth = new Map<string, number>();
-    rows.forEach((r) => {
-      const key = r.expense_date.slice(0, 7);
-      spentByMonth.set(key, (spentByMonth.get(key) ?? 0) + Number(r.amount));
-    });
-    return monthKeys.map((key) => ({
-      name: formatMonthShort(key),
-      expense: spentByMonth.get(key) ?? 0,
-      income: perMonthIncome,
-    }));
-  }, [rows, monthKeys, perMonthIncome]);
 
   return (
     <>
@@ -181,29 +239,99 @@ export default function AnalyticsPage() {
           </div>
           <Skeleton className="mt-6 h-72 rounded-card" />
         </>
-      ) : rows.length === 0 ? (
-        <EmptyState
-          icon={BarChart3}
-          testId="analytics-empty"
-          title="Nothing to chart yet"
-          description="Record a few expenses and this fills in on its own."
-        />
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <StatCard label="Income" value={<Amount value={totalIncome} />} tone="positive" />
-            <StatCard label="Expenses" value={<Amount value={spend} />} tone="negative" />
-            <StatCard
-              label="Savings rate"
-              value={<span className="tabular">{savingsRatePct(totalIncome, spend)}%</span>}
-              caption={`${formatRange(range)} · ${rows.length} transactions`}
+          {/*
+            Only the range-scoped summary and the category breakdown depend on
+            the page range having rows. The trend below carries its own range —
+            up to two years — so gating it here would hide a chart that has
+            plenty of data just because nothing was spent this month.
+          */}
+          {rows.length === 0 ? (
+            <EmptyState
+              icon={BarChart3}
+              testId="analytics-empty"
+              title="Nothing to chart yet"
+              description="Record a few expenses and this fills in on its own."
             />
-          </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-3">
+              <StatCard label="Income" value={<Amount value={totalIncome} />} tone="positive" />
+              <StatCard label="Expenses" value={<Amount value={spend} />} tone="negative" />
+              <StatCard
+                label="Savings rate"
+                value={<span className="tabular">{savingsRatePct(totalIncome, spend)}%</span>}
+                caption={`${formatRange(range)} · ${rows.length} transactions`}
+              />
+            </div>
+          )}
 
           <div className="mt-6 grid gap-4 lg:grid-cols-2">
             <Card>
-              <CardHeader title="Income against spending" />
-              <IncomeExpenseBars title="Income against spending by month" data={byMonth} />
+              <CardHeader
+                title="Income against spending"
+                action={
+                  <div className="flex flex-wrap gap-1">
+                    {(
+                      [
+                        ['6m', '6M'],
+                        ['1y', '1Y'],
+                        ['2y', '2Y'],
+                        ['custom', 'Custom'],
+                      ] as Array<[TrendRange, string]>
+                    ).map(([value, label]) => (
+                      <Button
+                        key={value}
+                        size="sm"
+                        variant={trendRange === value ? 'primary' : 'text'}
+                        aria-pressed={trendRange === value}
+                        onClick={() => setTrendRange(value)}
+                      >
+                        {label}
+                      </Button>
+                    ))}
+                  </div>
+                }
+              />
+
+              {trendRange === 'custom' && (
+                <div className="mb-4 grid gap-3 sm:grid-cols-2">
+                  <Input
+                    label="Trend from"
+                    type="date"
+                    value={trendFrom}
+                    onChange={(e) => setTrendFrom(e.target.value)}
+                  />
+                  <Input
+                    label="Trend to"
+                    type="date"
+                    value={trendTo}
+                    onChange={(e) => setTrendTo(e.target.value)}
+                    error={
+                      trendInvalid
+                        ? 'The end date must not be before the start date.'
+                        : undefined
+                    }
+                  />
+                </div>
+              )}
+
+              {rollup.error ? (
+                <ErrorState
+                  description={friendlyMessage(rollup.error)}
+                  onRetry={() => rollup.refetch()}
+                />
+              ) : rollup.isPending && !trendInvalid ? (
+                <Skeleton className="h-[340px] rounded-card" />
+              ) : (
+                <>
+                  <TrendSummary points={trendPoints} />
+                  <IncomeExpenseSavingsTrend
+                    title="Income, expenses and savings by month"
+                    data={trendPoints}
+                  />
+                </>
+              )}
             </Card>
             <Card>
               <CardHeader

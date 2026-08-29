@@ -44,6 +44,21 @@ export const useBudgetProgress = (month: string) =>
     queryFn: () => api.budgetProgress(month),
   });
 
+/**
+ * Server-side monthly and category totals for a date range.
+ *
+ * The income-against-spending trend uses this rather than reading the ledger,
+ * because its longest range is two years. Pulling every row to sum it in the
+ * browser would both transfer far more than needed and silently truncate at
+ * the page size, which would show a wrong total rather than a slow one.
+ */
+export const useAnalyticsRollup = (from: string, to: string, enabled = true) =>
+  useQuery({
+    queryKey: qk.analyticsRollup(from, to),
+    queryFn: () => api.analyticsRollup(from, to),
+    enabled,
+  });
+
 export const useDebts = () =>
   useQuery({ queryKey: qk.debts, queryFn: () => api.listDebts() });
 

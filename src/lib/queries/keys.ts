@@ -13,6 +13,8 @@ export const qk = {
 
   budgets: ['budgets'] as const,
   budgetProgress: (month: string) => ['budget-progress', month] as const,
+  analyticsRollup: (from: string, to: string) =>
+    ['analytics-rollup', from, to] as const,
 
   debts: ['debts'] as const,
   debt: (id: string) => ['debt', id] as const,

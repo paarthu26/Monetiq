@@ -302,6 +302,50 @@ export const api = {
     });
   },
 
+  /**
+   * Mirrors `analytics_category_rollup` / `analytics_monthly_rollup`, which
+   * aggregate in Postgres. Both read the EXPENSE LEDGER only — there is no
+   * path from here to the statement fixtures, which is the separation ST-19
+   * checks.
+   */
+  async analyticsRollup(from: string, to: string) {
+    return call(() => {
+      const rows = db().ledger.filter(
+        (e) => e.expense_date >= from && e.expense_date <= to,
+      );
+
+      const catTotals = new Map<string, { name: string; total: number; count: number }>();
+      const monthTotals = new Map<string, { total: number; count: number }>();
+
+      for (const e of rows) {
+        const cat = db().categories.find((c) => c.id === e.category_id);
+        const key = e.category_id ?? 'none';
+        const c = catTotals.get(key) ?? { name: cat?.name ?? 'Uncategorised', total: 0, count: 0 };
+        c.total += Number(e.amount);
+        c.count += 1;
+        catTotals.set(key, c);
+
+        const mk = e.expense_date.slice(0, 7);
+        const m = monthTotals.get(mk) ?? { total: 0, count: 0 };
+        m.total += Number(e.amount);
+        m.count += 1;
+        monthTotals.set(mk, m);
+      }
+
+      return {
+        byCategory: Array.from(catTotals.entries()).map(([id, v]) => ({
+          category_id: id === 'none' ? null : id,
+          name: v.name,
+          total: v.total,
+          count: v.count,
+        })),
+        byMonth: Array.from(monthTotals.entries())
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([month, v]) => ({ month, total: v.total, count: v.count })),
+      };
+    });
+  },
+
   // --------------------------------------------------------------- budgets --
   async listBudgets(): Promise<Tables<'budgets'>[]> {
     return call(() => db().budgets);
