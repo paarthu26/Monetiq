@@ -342,10 +342,23 @@ function formatAxisINR(v: number): string {
   return `₹${v}`;
 }
 
+/**
+ * `dash` is on savings alone, and it is load-bearing rather than decorative.
+ *
+ * Savings is income minus expenses, so in any month with little spending it
+ * lands on the income line exactly. Drawn solid it covered income completely
+ * and the income series simply vanished — measured on the dev account, both
+ * resolved to the same y pixel. A dashed stroke lets the solid line beneath
+ * show through, so a coincidence reads as "these two are equal" rather than
+ * "one is missing". It also gives the series a second cue beyond colour.
+ *
+ * `dotR` nests the markers for the same reason: where two points coincide, the
+ * smaller one sits inside the larger instead of hiding it.
+ */
 const SERIES = [
-  { key: 'income', label: 'Income', color: TREND_COLORS.income },
-  { key: 'expense', label: 'Expenses', color: TREND_COLORS.expense },
-  { key: 'savings', label: 'Savings', color: TREND_COLORS.savings },
+  { key: 'income', label: 'Income', color: TREND_COLORS.income, dash: undefined, dotR: 4 },
+  { key: 'expense', label: 'Expenses', color: TREND_COLORS.expense, dash: undefined, dotR: 3.5 },
+  { key: 'savings', label: 'Savings', color: TREND_COLORS.savings, dash: '5 4', dotR: 2.5 },
 ] as const;
 
 function TrendTooltip({
@@ -368,8 +381,8 @@ function TrendTooltip({
           <div key={sr.key} className="flex items-center gap-2 text-caption">
             <span
               aria-hidden
-              className="h-2 w-2 shrink-0 rounded-circle"
-              style={{ background: sr.color }}
+              className={sr.dash ? 'h-0 w-3 shrink-0 border-t-2 border-dashed' : 'h-2 w-2 shrink-0 rounded-circle'}
+              style={sr.dash ? { borderColor: sr.color } : { background: sr.color }}
             />
             <dt className="text-muted">{sr.label}</dt>
             <dd className="tabular ml-auto pl-4" style={{ color: TEXT_INK }}>
@@ -420,8 +433,8 @@ export function IncomeExpenseSavingsTrend({
           <li key={sr.key} className="flex items-center gap-2 text-body-2">
             <span
               aria-hidden
-              className="h-2.5 w-2.5 shrink-0 rounded-circle"
-              style={{ background: sr.color }}
+              className={sr.dash ? 'h-0 w-4 shrink-0 border-t-2 border-dashed' : 'h-2.5 w-2.5 shrink-0 rounded-circle'}
+              style={sr.dash ? { borderColor: sr.color } : { background: sr.color }}
             />
             <span className="text-secondary">{sr.label}</span>
           </li>
@@ -460,11 +473,12 @@ export function IncomeExpenseSavingsTrend({
               name={sr.label}
               stroke={sr.color}
               strokeWidth={2}
+              strokeDasharray={sr.dash}
               // Circular points, with a surface ring so overlapping series stay
               // separable where the lines cross.
-              dot={{ r: 3.5, fill: sr.color, stroke: '#FFFFFF', strokeWidth: 1.5 }}
+              dot={{ r: sr.dotR, fill: sr.color, stroke: '#FFFFFF', strokeWidth: 1.5 }}
               // The hovered month's points grow — that is the "selected" state.
-              activeDot={{ r: 6, fill: sr.color, stroke: '#FFFFFF', strokeWidth: 2 }}
+              activeDot={{ r: sr.dotR + 2.5, fill: sr.color, stroke: '#FFFFFF', strokeWidth: 2 }}
               isAnimationActive={false}
             />
           ))}
