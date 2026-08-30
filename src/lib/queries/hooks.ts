@@ -361,6 +361,50 @@ export const useAdminAiDashboard = () =>
 export const useAdminOcrDashboard = () =>
   useQuery({ queryKey: qk.admin.ocrDashboard, queryFn: () => api.adminOcrDashboard() });
 
+/* ------------------------------------------------ admin trend series ---- */
+
+export const useAdminUserGrowth = (from: string, to: string, enabled = true) =>
+  useQuery({
+    queryKey: qk.admin.trend('user-growth', from, to),
+    queryFn: () => api.adminUserGrowth(from, to),
+    enabled,
+  });
+
+export const useAdminActiveUsers = (from: string, to: string, enabled = true) =>
+  useQuery({
+    queryKey: qk.admin.trend('active-users', from, to),
+    queryFn: () => api.adminActiveUsers(from, to),
+    enabled,
+  });
+
+export const useAdminFeatureUsage = (from: string, to: string, enabled = true) =>
+  useQuery({
+    queryKey: qk.admin.trend('feature-usage', from, to),
+    queryFn: () => api.adminFeatureUsage(from, to),
+    enabled,
+  });
+
+export const useAdminOcrTrend = (from: string, to: string, enabled = true) =>
+  useQuery({
+    queryKey: qk.admin.trend('ocr', from, to),
+    queryFn: () => api.adminOcrTrend(from, to),
+    enabled,
+  });
+
+export const useAdminAiTrend = (from: string, to: string, enabled = true) =>
+  useQuery({
+    queryKey: qk.admin.trend('ai', from, to),
+    queryFn: () => api.adminAiTrend(from, to),
+    enabled,
+  });
+
+export const useAdminOpsTrend = (from: string, to: string, enabled = true) =>
+  useQuery({
+    queryKey: qk.admin.trend('ops', from, to),
+    queryFn: () => api.adminOpsTrend(from, to),
+    enabled,
+  });
+
 export const useAdminTickets = () =>
   useQuery({ queryKey: qk.admin.tickets, queryFn: () => api.adminListTickets() });
 

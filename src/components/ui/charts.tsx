@@ -47,12 +47,20 @@ function ChartFrame({
   valueLabel,
   children,
   height = 260,
+  format = formatINR,
 }: {
   title: string;
-  data: Array<{ name: string; value: number }>;
+  data: Array<{ name: string; value: number | null }>;
   valueLabel: string;
   children: ReactNode;
   height?: number;
+  /**
+   * How to render a value in the accessible table. Defaults to rupees, which
+   * is right for the money charts this started as — but the admin charts carry
+   * counts, percentages and milliseconds, and a success rate rendered as "₹83"
+   * is simply wrong for anyone reading the table instead of the picture.
+   */
+  format?: (v: number) => string;
 }) {
   const visualRef = useRef<HTMLDivElement>(null);
 
@@ -109,7 +117,8 @@ function ChartFrame({
           {data.map((d) => (
             <tr key={d.name}>
               <th scope="row">{d.name}</th>
-              <td>{formatINR(d.value)}</td>
+              {/* A null period genuinely has no value; 0 would be a claim. */}
+              <td>{typeof d.value === 'number' ? format(d.value) : '—'}</td>
             </tr>
           ))}
         </tbody>
@@ -306,18 +315,21 @@ export function CountBars({
 /**
  * The MONETIQ trend palette.
  *
- * The brand's two dark blues (#1E1B4B and #314363) cannot BOTH be series here:
- * measured against each other they sit at ΔE 13.0 for normal vision, under the
- * 15 floor where two lines stop being reliably tellable apart — a gap that
- * secondary encoding does not excuse. So savings takes a lighter step of the
- * same slate family, which puts every adjacent pair above ΔE 30 for normal
- * vision and above 30 under deuteranopia and tritanopia, and keeps all three
- * over 3:1 against the card.
+ * The brand's two dark blues (#1E1B4B and #314363) cannot both be series here —
+ * against each other they measure ΔE 13.0 for normal vision, under the 15 floor
+ * where two lines stop being reliably tellable apart.
+ *
+ * The first fix for that used a lighter slate (#64748B) for savings, which is
+ * fine ADJACENT to expenses but only ΔE 10.6 from income — and on a line chart
+ * every series is visible at once and the lines cross, so all-pairs is the test
+ * that matters, not adjacency. Savings now takes #B45309, already an app token,
+ * which lifts the worst pair to ΔE 28.4 for normal vision and 24.6 under
+ * deuteranopia, with all three over 3:1 against the card.
  */
 const TREND_COLORS = {
   income: '#0284C7',
   expense: '#1E1B4B',
-  savings: '#64748B',
+  savings: '#B45309',
 } as const;
 
 /** Grid, axis and guide ink. Recessive on purpose — the lines are the subject. */
@@ -479,6 +491,198 @@ export function IncomeExpenseSavingsTrend({
               dot={{ r: sr.dotR, fill: sr.color, stroke: '#FFFFFF', strokeWidth: 1.5 }}
               // The hovered month's points grow — that is the "selected" state.
               activeDot={{ r: sr.dotR + 2.5, fill: sr.color, stroke: '#FFFFFF', strokeWidth: 2 }}
+              isAnimationActive={false}
+            />
+          ))}
+        </LineChart>
+      </ChartFrame>
+    </>
+  );
+}
+
+/* ------------------------------------------------- admin analytics trend */
+
+/**
+ * The Super Admin chart palette.
+ *
+ * Validated all-pairs, because these are line charts: every series is on
+ * screen at once and the lines cross, so "adjacent in the legend" is not the
+ * relevant test. Worst pair is #B45309↔#0284C7 at ΔE 28.4 for normal vision
+ * and 24.6 under deuteranopia, with all three over 3:1 on the card.
+ *
+ * Three is the ceiling, and that is a measured limit rather than a stylistic
+ * one: no fourth hue drawn from this brand clears the ΔE 15 normal-vision
+ * floor against all of the first three. A metric with four dimensions is drawn
+ * as small multiples instead — see the feature-usage card on the dashboard.
+ */
+export const ADMIN_SERIES_COLORS = {
+  primary: '#0284C7',
+  secondary: '#1E1B4B',
+  tertiary: '#B45309',
+  /** Status pair, for success-versus-failure only. Never as "series 4". */
+  success: '#0EA765',
+  failure: '#B91C2C',
+} as const;
+
+export type AdminSeries = {
+  key: string;
+  label: string;
+  color: string;
+  /** Dash a derived or secondary series so a coincidence stays readable. */
+  dash?: string;
+};
+
+export type AdminTrendRow = { month: string } & Record<string, number | string | null>;
+
+/** Compact integer ticks: 1.2k rather than 1200. */
+export function formatCount(v: number): string {
+  const abs = Math.abs(v);
+  if (abs >= 1000000) return `${(v / 1000000).toFixed(abs % 1000000 === 0 ? 0 : 1)}M`;
+  if (abs >= 1000) return `${(v / 1000).toFixed(abs % 1000 === 0 ? 0 : 1)}k`;
+  return String(v);
+}
+
+export const formatPct = (v: number) => `${v}%`;
+export const formatMs = (v: number) => `${formatCount(v)} ms`;
+
+function AdminTooltip({
+  active,
+  payload,
+  series,
+  format,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload: AdminTrendRow }>;
+  series: readonly AdminSeries[];
+  format: (v: number) => string;
+}) {
+  if (!active || !payload?.length) return null;
+  const row = payload[0].payload;
+
+  return (
+    <div className="rounded-control border border-hairline bg-surface px-3 py-2.5 shadow-md">
+      <p className="mb-1.5 text-caption font-semibold" style={{ color: TEXT_INK }}>
+        {formatMonthShort(row.month)}
+      </p>
+      <dl className="flex flex-col gap-1">
+        {series.map((sr) => {
+          const raw = row[sr.key];
+          return (
+            <div key={sr.key} className="flex items-center gap-2 text-caption">
+              <span
+                aria-hidden
+                className={
+                  sr.dash
+                    ? 'h-0 w-3 shrink-0 border-t-2 border-dashed'
+                    : 'h-2 w-2 shrink-0 rounded-circle'
+                }
+                style={sr.dash ? { borderColor: sr.color } : { background: sr.color }}
+              />
+              <dt className="text-muted">{sr.label}</dt>
+              <dd className="tabular ml-auto pl-4" style={{ color: TEXT_INK }}>
+                {/* A null month has no value, and printing 0 would be a lie. */}
+                {typeof raw === 'number' ? format(raw) : '—'}
+              </dd>
+            </div>
+          );
+        })}
+      </dl>
+    </div>
+  );
+}
+
+/**
+ * The one line chart every Super Admin analytics card uses.
+ *
+ * Same shape as the user-facing trend: monotone curves, circular points with a
+ * surface ring, light horizontal grid, a dashed vertical guide on hover, and
+ * an sr-only data table behind it.
+ */
+export function AdminTrendChart({
+  title,
+  data,
+  series,
+  format = formatCount,
+  height = 260,
+  compact = false,
+}: {
+  title: string;
+  data: AdminTrendRow[];
+  series: readonly AdminSeries[];
+  format?: (v: number) => string;
+  height?: number;
+  /** Small-multiple mode: no legend, tighter axes. */
+  compact?: boolean;
+}) {
+  const flat = data.flatMap((d) =>
+    series.map((sr) => ({
+      name: `${formatMonthShort(d.month)} ${sr.label.toLowerCase()}`,
+      // Nulls are kept as nulls: the table shows "—" rather than inventing a 0.
+      value: typeof d[sr.key] === 'number' ? (d[sr.key] as number) : null,
+    })),
+  );
+
+  return (
+    <>
+      {!compact && series.length > 1 && (
+        <ul className="mb-2 flex flex-wrap items-center gap-x-5 gap-y-1.5">
+          {series.map((sr) => (
+            <li key={sr.key} className="flex items-center gap-2 text-body-2">
+              <span
+                aria-hidden
+                className={
+                  sr.dash
+                    ? 'h-0 w-4 shrink-0 border-t-2 border-dashed'
+                    : 'h-2.5 w-2.5 shrink-0 rounded-circle'
+                }
+                style={sr.dash ? { borderColor: sr.color } : { background: sr.color }}
+              />
+              <span className="text-secondary">{sr.label}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <ChartFrame title={title} data={flat} valueLabel="Value" height={height} format={format}>
+        <LineChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: 4 }}>
+          <CartesianGrid stroke={GRID_INK} vertical={false} />
+          <XAxis
+            dataKey="month"
+            tickFormatter={formatMonthShort}
+            tick={{ fontSize: compact ? 10 : 11, fill: AXIS_INK }}
+            stroke={AXIS_INK}
+            tickMargin={8}
+            minTickGap={compact ? 24 : 16}
+          />
+          <YAxis
+            tick={{ fontSize: compact ? 10 : 11, fill: AXIS_INK }}
+            stroke={AXIS_INK}
+            width={compact ? 40 : 56}
+            tickFormatter={format}
+            allowDecimals={false}
+          />
+          <RTooltip
+            content={<AdminTooltip series={series} format={format} />}
+            cursor={{
+              stroke: ADMIN_SERIES_COLORS.secondary,
+              strokeWidth: 1,
+              strokeDasharray: '4 4',
+            }}
+          />
+          {series.map((sr) => (
+            <Line
+              key={sr.key}
+              type="monotone"
+              dataKey={sr.key}
+              name={sr.label}
+              stroke={sr.color}
+              strokeWidth={2}
+              strokeDasharray={sr.dash}
+              // A month with no activity has no rate, so the line breaks rather
+              // than dropping to zero and implying total failure.
+              connectNulls={false}
+              dot={{ r: compact ? 2.5 : 3.5, fill: sr.color, stroke: '#FFFFFF', strokeWidth: 1.5 }}
+              activeDot={{ r: compact ? 5 : 6, fill: sr.color, stroke: '#FFFFFF', strokeWidth: 2 }}
               isAnimationActive={false}
             />
           ))}

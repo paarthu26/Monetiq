@@ -44,6 +44,10 @@ export const qk = {
     providers: ['admin', 'providers'] as const,
     aiDashboard: ['admin', 'ai-dashboard'] as const,
     ocrDashboard: ['admin', 'ocr-dashboard'] as const,
+    // Trend series are keyed by their window, so switching 6M/1Y/2Y caches
+    // each range instead of refetching the one before it.
+    trend: (name: string, from: string, to: string) =>
+      ['admin', 'trend', name, from, to] as const,
     tickets: ['admin', 'tickets'] as const,
     rolePermissions: ['admin', 'role-permissions'] as const,
     auditLog: ['admin', 'audit-log'] as const,

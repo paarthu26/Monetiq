@@ -2,16 +2,41 @@
 
 import { PageHeader } from '@/components/shell/AppShell';
 import { ErrorState, InfoBanner } from '@/components/ui/data';
+import {
+  ADMIN_SERIES_COLORS,
+  AdminTrendChart,
+  formatMs,
+  formatPct,
+} from '@/components/ui/charts';
 import { Badge, Card, CardHeader, Skeleton } from '@/components/ui/primitives';
+import {
+  TrendRangeCustomFields,
+  TrendRangeTabs,
+  useTrendRange,
+} from '@/components/ui/trend-range';
 import { friendlyMessage } from '@/lib/api/errors';
-import { useAdminServices } from '@/lib/queries/hooks';
+import { useAdminOpsTrend, useAdminServices } from '@/lib/queries/hooks';
+
+const LATENCY_SERIES = [
+  { key: 'avg_duration_ms', label: 'Avg processing time', color: ADMIN_SERIES_COLORS.primary },
+] as const;
+
+const ERROR_SERIES = [
+  { key: 'error_rate_pct', label: 'Error rate', color: ADMIN_SERIES_COLORS.failure },
+] as const;
+
+const SUCCESS_SERIES = [
+  { key: 'success_rate_pct', label: 'Success rate', color: ADMIN_SERIES_COLORS.success },
+] as const;
 
 export default function AdminSystemPage() {
+  const trend = useTrendRange('6m');
+  const ops = useAdminOpsTrend(trend.from, trend.to, !trend.invalid);
   const services = useAdminServices();
 
   return (
     <>
-      <PageHeader title="System monitoring" description="Per-service status." />
+      <PageHeader title="System monitoring" description="Measured operation trends, and hand-maintained service status." />
 
       {/*
         Phase 1 built the table and the RLS, and nothing else — no requirement
@@ -25,10 +50,72 @@ export default function AdminSystemPage() {
           testId="system-manual-notice"
         >
           No monitoring integration exists. Nothing polls these services automatically, so
-          the values below are only as current as the last manual update. Treat them as a
-          record, not a live status page.
+          the uptime and status values below are only as current as the last manual update.
+          Treat them as a record, not a live status page. The charts above are different:
+          those are measured from real operations, and there is no uptime history to chart
+          because nothing records one.
         </InfoBanner>
       </div>
+
+      <Card className="mb-4">
+        <CardHeader
+          title="Platform operations"
+          description="Measured from every AI and OCR operation the platform ran."
+          action={<TrendRangeTabs window={trend} />}
+        />
+        <TrendRangeCustomFields window={trend} />
+
+        {/*
+          These three are charted because ai_usage_log and ocr_scan_log record
+          an outcome and a duration for every operation, so the numbers are
+          real. HTTP request latency is NOT charted: nothing in the system
+          records it, and a line drawn from the uptime figures below would be
+          invention rather than measurement.
+        */}
+        {ops.error ? (
+          <ErrorState description={friendlyMessage(ops.error)} onRetry={() => ops.refetch()} />
+        ) : ops.isPending && !trend.invalid ? (
+          <Skeleton className="h-[260px] rounded-card" />
+        ) : (
+          <div className="flex flex-col gap-6">
+            <section>
+              <h3 className="mb-2 text-body-2 font-medium text-secondary">
+                Average processing time
+              </h3>
+              <AdminTrendChart
+                title="Average operation processing time by month"
+                data={ops.data ?? []}
+                series={LATENCY_SERIES}
+                format={formatMs}
+              />
+            </section>
+
+            <div className="grid gap-6 lg:grid-cols-2">
+              <section>
+                <h3 className="mb-2 text-body-2 font-medium text-secondary">Error rate</h3>
+                <AdminTrendChart
+                  title="Operation error rate by month"
+                  data={ops.data ?? []}
+                  series={ERROR_SERIES}
+                  format={formatPct}
+                />
+              </section>
+
+              <section>
+                <h3 className="mb-2 text-body-2 font-medium text-secondary">
+                  Success rate
+                </h3>
+                <AdminTrendChart
+                  title="Operation success rate by month"
+                  data={ops.data ?? []}
+                  series={SUCCESS_SERIES}
+                  format={formatPct}
+                />
+              </section>
+            </div>
+          </div>
+        )}
+      </Card>
 
       {services.error ? (
         <ErrorState
