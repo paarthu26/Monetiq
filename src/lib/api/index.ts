@@ -1162,6 +1162,104 @@ export const api = {
     });
   },
 
+  /* --------------------------------------------- admin trend series ------ */
+
+  /**
+   * Monthly series for the Super Admin analytics charts.
+   *
+   * Every one of these is derived from tables that already exist — profiles,
+   * expense_ledger, ai_usage_log, ocr_scan_log, bank_statement_uploads. None
+   * of them invents a metric. Note what is NOT here: there is no uptime or
+   * HTTP-latency series, because nothing records either. See the migration.
+   *
+   * `null` is preserved where Postgres returns it: a month with no operations
+   * has no success rate, and Number(null) would turn that into 0, which reads
+   * on a chart as "everything failed" rather than "nothing happened".
+   */
+  async adminUserGrowth(from: string, to: string) {
+    await requireAdmin();
+    return read('dashboard', async (supa) => {
+      const rows = unwrap(await supa.rpc('admin_user_growth', { p_from: from, p_to: to }));
+      return (rows ?? []).map((r) => ({
+        month: r.month,
+        new_users: Number(r.new_users),
+        total_users: Number(r.total_users),
+      }));
+    });
+  },
+
+  async adminActiveUsers(from: string, to: string) {
+    await requireAdmin();
+    return read('dashboard', async (supa) => {
+      const rows = unwrap(await supa.rpc('admin_active_users', { p_from: from, p_to: to }));
+      return (rows ?? []).map((r) => ({
+        month: r.month,
+        active_users: Number(r.active_users),
+      }));
+    });
+  },
+
+  async adminFeatureUsage(from: string, to: string) {
+    await requireAdmin();
+    return read('dashboard', async (supa) => {
+      const rows = unwrap(await supa.rpc('admin_feature_usage', { p_from: from, p_to: to }));
+      return (rows ?? []).map((r) => ({
+        month: r.month,
+        expenses: Number(r.expenses),
+        ocr_scans: Number(r.ocr_scans),
+        ai_requests: Number(r.ai_requests),
+        statements: Number(r.statements),
+      }));
+    });
+  },
+
+  async adminOcrTrend(from: string, to: string) {
+    await requireAdmin();
+    return read('dashboard', async (supa) => {
+      const rows = unwrap(await supa.rpc('admin_ocr_trend', { p_from: from, p_to: to }));
+      return (rows ?? []).map((r) => ({
+        month: r.month,
+        scans: Number(r.scans),
+        successes: Number(r.successes),
+        failures: Number(r.failures),
+        success_rate_pct: r.success_rate_pct == null ? null : Number(r.success_rate_pct),
+        avg_duration_ms: r.avg_duration_ms == null ? null : Number(r.avg_duration_ms),
+      }));
+    });
+  },
+
+  async adminAiTrend(from: string, to: string) {
+    await requireAdmin();
+    return read('dashboard', async (supa) => {
+      const rows = unwrap(await supa.rpc('admin_ai_trend', { p_from: from, p_to: to }));
+      return (rows ?? []).map((r) => ({
+        month: r.month,
+        requests: Number(r.requests),
+        successes: Number(r.successes),
+        failures: Number(r.failures),
+        success_rate_pct: r.success_rate_pct == null ? null : Number(r.success_rate_pct),
+        avg_duration_ms: r.avg_duration_ms == null ? null : Number(r.avg_duration_ms),
+        total_cost_usd: Number(r.total_cost_usd),
+      }));
+    });
+  },
+
+  async adminOpsTrend(from: string, to: string) {
+    await requireAdmin();
+    return read('dashboard', async (supa) => {
+      const rows = unwrap(await supa.rpc('admin_ops_trend', { p_from: from, p_to: to }));
+      return (rows ?? []).map((r) => ({
+        month: r.month,
+        operations: Number(r.operations),
+        successes: Number(r.successes),
+        failures: Number(r.failures),
+        success_rate_pct: r.success_rate_pct == null ? null : Number(r.success_rate_pct),
+        error_rate_pct: r.error_rate_pct == null ? null : Number(r.error_rate_pct),
+        avg_duration_ms: r.avg_duration_ms == null ? null : Number(r.avg_duration_ms),
+      }));
+    });
+  },
+
   async adminListTickets(): Promise<Tables<'help_desk_tickets'>[]> {
     await requireAdmin();
     return read('ticket', async (supa) =>

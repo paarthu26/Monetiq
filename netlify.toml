@@ -1,0 +1,58 @@
+# ---------------------------------------------------------------------------
+# Netlify deployment configuration.
+#
+# Next.js on Netlify is handled by the official runtime plugin, which turns
+# app-router routes, middleware and server components into Netlify Functions.
+# Nothing here overrides that — it sets the Node version, scopes secrets
+# scanning correctly, and adds baseline security headers.
+# ---------------------------------------------------------------------------
+
+[build]
+  command = "npm run build"
+  # No `publish` key: the Next.js runtime plugin (v5) manages the output
+  # directory itself, and setting one here conflicts with it.
+
+[build.environment]
+  # Next 14 requires Node >= 18.17; pin to an active LTS so local and CI match.
+  NODE_VERSION = "20"
+
+  # --- Secrets scanning -----------------------------------------------------
+  # Netlify scans the build output for the VALUES of every environment
+  # variable and fails the build if one appears. Two of ours are SUPPOSED to
+  # appear in client output:
+  #
+  #   NEXT_PUBLIC_SUPABASE_URL   — the project URL
+  #   NEXT_PUBLIC_SUPABASE_ANON_KEY — the anon key, an RLS-scoped public token
+  #
+  # Both are compiled into the browser bundle on purpose; that is how a
+  # Supabase client works and is not a leak. Every read/write they permit is
+  # still gated by Row Level Security — proven by the attacker tests in the
+  # security audit, where a valid normal-user token could not read or modify
+  # any other user's data.
+  #
+  # We omit ONLY those two keys. We deliberately do NOT set
+  # SECRETS_SCAN_ENABLED=false, because that would also stop scanning for
+  # SUPABASE_SERVICE_ROLE_KEY — the one secret that must never reach the
+  # client. With this scoping, a future accidental leak of the service-role
+  # key (or any other secret) still fails the build.
+  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# --- Security headers -------------------------------------------------------
+# Defence in depth. The real authorization boundary is Supabase RLS; these
+# reduce the blast radius of a client-side mistake.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # Clickjacking: a finance dashboard should never be framed.
+    X-Frame-Options = "DENY"
+    # Stop MIME sniffing of responses.
+    X-Content-Type-Options = "nosniff"
+    # Do not leak full URLs (which can carry ids) to other origins.
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    # Drop powerful features the app does not use.
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=()"
+    # HTTPS only, including subdomains, once seen.
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"

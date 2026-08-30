@@ -224,6 +224,40 @@ export function monthlyRecurringIncome(sources: IncomeSource[]): number {
   );
 }
 
+export type DatedIncomeSource = {
+  amount: number;
+  frequency: 'one_time' | 'monthly';
+  /** `YYYY-MM-DD`. When a recurring source began, or a one-off was received. */
+  received_or_start_date: string;
+  is_active?: boolean;
+};
+
+/**
+ * Income actually received in a given `YYYY-MM`.
+ *
+ * `monthlyRecurringIncome` answers "what comes in per month, today" — the right
+ * question for a single headline figure, and it is left alone. It is the WRONG
+ * question for a month-by-month series: applied to a range it projects today's
+ * salary backwards over months in which the source did not yet exist, inventing
+ * income the user never had. On the dev account that put ₹1,01,000 in every
+ * month back to March against a source that started on 21 August.
+ *
+ * So a recurring source counts only from the month it started, a one-off counts
+ * only in the month it was received, and an inactive source counts for nothing.
+ */
+export function incomeForMonth(sources: DatedIncomeSource[], monthKey: string): number {
+  return round2(
+    sources.reduce((sum, s) => {
+      if (s.is_active === false) return sum;
+      const startMonth = s.received_or_start_date.slice(0, 7);
+      if (s.frequency === 'monthly') {
+        return startMonth <= monthKey ? sum + s.amount : sum;
+      }
+      return startMonth === monthKey ? sum + s.amount : sum;
+    }, 0),
+  );
+}
+
 export function savings(income: number, expenses: number): number {
   return round2(income - expenses);
 }

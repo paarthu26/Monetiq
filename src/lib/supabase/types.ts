@@ -1229,6 +1229,63 @@ export type Database = {
         Args: { p_config_id: string }
         Returns: string
       }
+      admin_active_users: {
+        Args: { p_from: string; p_to: string }
+        Returns: { active_users: number; month: string }[]
+      }
+      admin_ai_trend: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          avg_duration_ms: number | null
+          failures: number
+          month: string
+          requests: number
+          success_rate_pct: number | null
+          successes: number
+          total_cost_usd: number
+        }[]
+      }
+      admin_feature_usage: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          ai_requests: number
+          expenses: number
+          month: string
+          ocr_scans: number
+          statements: number
+        }[]
+      }
+      admin_month_series: {
+        Args: { p_from: string; p_to: string }
+        Returns: { month: string }[]
+      }
+      admin_ocr_trend: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          avg_duration_ms: number | null
+          failures: number
+          month: string
+          scans: number
+          success_rate_pct: number | null
+          successes: number
+        }[]
+      }
+      admin_ops_trend: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          avg_duration_ms: number | null
+          error_rate_pct: number | null
+          failures: number
+          month: string
+          operations: number
+          success_rate_pct: number | null
+          successes: number
+        }[]
+      }
+      admin_user_growth: {
+        Args: { p_from: string; p_to: string }
+        Returns: { month: string; new_users: number; total_users: number }[]
+      }
       admin_ocr_dashboard: {
         Args: { p_days?: number }
         Returns: {

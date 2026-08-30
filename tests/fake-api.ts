@@ -47,6 +47,18 @@ function db(): Dataset {
   return store;
 }
 
+/** `YYYY-MM` keys across an inclusive date range, mirroring admin_month_series. */
+function monthsIn(from: string, to: string): string[] {
+  const out: string[] = [];
+  let [y, m] = from.slice(0, 7).split('-').map(Number);
+  const [ty, tm] = to.slice(0, 7).split('-').map(Number);
+  for (let i = 0; i < 600 && (y < ty || (y === ty && m <= tm)); i++) {
+    out.push(`${y}-${String(m).padStart(2, '0')}`);
+    if (++m > 12) { m = 1; y += 1; }
+  }
+  return out;
+}
+
 /** Drops in-memory mutations. Tests call this between cases. */
 export function resetMockStore(): void {
   store = null;
@@ -1160,6 +1172,122 @@ export const api = {
         { day: '2026-08-19', scans: 39, successes: 34, failures: 5, success_rate_pct: 87.18, avg_duration_ms: 1610 },
         { day: '2026-08-18', scans: 62, successes: 60, failures: 2, success_rate_pct: 96.77, avg_duration_ms: 1340 },
       ];
+    });
+  },
+
+  /* -------------------------------------------- admin trend series ------ */
+
+  /**
+   * The live versions aggregate in Postgres over a real date range. Offline
+   * there is no such engine, so these build the same SHAPE from the fixture
+   * tables: one row per month across the requested window, zeros where nothing
+   * happened. Keeping the shape identical is what stops a screen passing here
+   * and breaking against the real RPC.
+   */
+  async adminUserGrowth(from: string, to: string) {
+    return call(() => {
+      assertAdmin();
+      let running = 0;
+      return monthsIn(from, to).map((month) => {
+        const newUsers = adminUsers.filter(
+          (u) => !u.deleted_at && u.created_at.slice(0, 7) === month,
+        ).length;
+        running += newUsers;
+        return { month, new_users: newUsers, total_users: running };
+      });
+    });
+  },
+
+  async adminActiveUsers(from: string, to: string) {
+    return call(() => {
+      assertAdmin();
+      return monthsIn(from, to).map((month) => {
+        const ids = new Set<string>();
+        db().ledger.forEach((e) => {
+          if (e.created_at.slice(0, 7) === month) ids.add(e.user_id);
+        });
+        return { month, active_users: ids.size };
+      });
+    });
+  },
+
+  async adminFeatureUsage(from: string, to: string) {
+    return call(() => {
+      assertAdmin();
+      return monthsIn(from, to).map((month) => ({
+        month,
+        expenses: db().ledger.filter((e) => e.created_at.slice(0, 7) === month).length,
+        ocr_scans: db().ocrScanLog.filter((o) => o.created_at.slice(0, 7) === month).length,
+        ai_requests: db().aiUsage.filter((a) => a.created_at.slice(0, 7) === month).length,
+        statements: db().statementUploads.filter((b) => b.created_at.slice(0, 7) === month).length,
+      }));
+    });
+  },
+
+  async adminOcrTrend(from: string, to: string) {
+    return call(() => {
+      assertAdmin();
+      return monthsIn(from, to).map((month) => {
+        const rows = db().ocrScanLog.filter((o) => o.created_at.slice(0, 7) === month);
+        const successes = rows.filter((o) => o.status === 'success').length;
+        const failures = rows.filter((o) => o.status === 'failed').length;
+        return {
+          month,
+          scans: rows.length,
+          successes,
+          failures,
+          // Null rather than 0 for an empty month, matching the RPC: a rate of
+          // zero would read as "everything failed".
+          success_rate_pct: rows.length ? Number(((successes / rows.length) * 100).toFixed(2)) : null,
+          avg_duration_ms: rows.length
+            ? Math.round(rows.reduce((n, o) => n + (o.duration_ms ?? 0), 0) / rows.length)
+            : null,
+        };
+      });
+    });
+  },
+
+  async adminAiTrend(from: string, to: string) {
+    return call(() => {
+      assertAdmin();
+      return monthsIn(from, to).map((month) => {
+        const rows = db().aiUsage.filter((a) => a.created_at.slice(0, 7) === month);
+        const successes = rows.filter((a) => a.status === 'success').length;
+        const failures = rows.filter((a) => a.status === 'failed').length;
+        return {
+          month,
+          requests: rows.length,
+          successes,
+          failures,
+          success_rate_pct: rows.length ? Number(((successes / rows.length) * 100).toFixed(2)) : null,
+          avg_duration_ms: rows.length
+            ? Math.round(rows.reduce((n, a) => n + (a.duration_ms ?? 0), 0) / rows.length)
+            : null,
+          total_cost_usd: Number(rows.reduce((n, a) => n + Number(a.cost_usd ?? 0), 0).toFixed(6)),
+        };
+      });
+    });
+  },
+
+  async adminOpsTrend(from: string, to: string) {
+    return call(() => {
+      assertAdmin();
+      return monthsIn(from, to).map((month) => {
+        const rows = db().ocrScanLog.filter((o) => o.created_at.slice(0, 7) === month);
+        const successes = rows.filter((o) => o.status === 'success').length;
+        const failures = rows.filter((o) => o.status === 'failed').length;
+        return {
+          month,
+          operations: rows.length,
+          successes,
+          failures,
+          success_rate_pct: rows.length ? Number(((successes / rows.length) * 100).toFixed(2)) : null,
+          error_rate_pct: rows.length ? Number(((failures / rows.length) * 100).toFixed(2)) : null,
+          avg_duration_ms: rows.length
+            ? Math.round(rows.reduce((n, o) => n + (o.duration_ms ?? 0), 0) / rows.length)
+            : null,
+        };
+      });
     });
   },
 

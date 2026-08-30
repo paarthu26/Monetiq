@@ -21,6 +21,7 @@ import { Button, Card, CardHeader, Input, Skeleton } from '@/components/ui/primi
 import { Tabs } from '@/components/ui/overlay';
 import {
   formatINR,
+  incomeForMonth,
   monthEnd,
   monthStart,
   monthlyRecurringIncome,
@@ -163,13 +164,24 @@ export default function AnalyticsPage() {
     const spent = new Map(
       (rollup.data?.byMonth ?? []).map((m) => [m.month, Number(m.total)]),
     );
+    // Income is resolved per month from each source's own start date, not by
+    // spreading today's figure across the range. Doing the latter credits the
+    // user with income in months before the source existed.
+    const sources = (income.data ?? []).map((i) => ({
+      amount: Number(i.amount),
+      frequency: i.frequency as 'one_time' | 'monthly',
+      received_or_start_date: i.received_or_start_date,
+      is_active: i.is_active,
+    }));
+
     return monthsBetween(trendWindow.from.slice(0, 7), trendWindow.to.slice(0, 7)).map(
       (month) => {
         const expense = spent.get(month) ?? 0;
-        return { month, income: perMonthIncome, expense, savings: perMonthIncome - expense };
+        const earned = incomeForMonth(sources, month);
+        return { month, income: earned, expense, savings: earned - expense };
       },
     );
-  }, [rollup.data, trendWindow.from, trendWindow.to, trendInvalid, perMonthIncome]);
+  }, [rollup.data, trendWindow.from, trendWindow.to, trendInvalid, income.data]);
 
   const breakdown = useMemo(() => {
     const out: Record<string, number> = {};

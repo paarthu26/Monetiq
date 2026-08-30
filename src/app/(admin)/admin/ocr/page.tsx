@@ -2,12 +2,38 @@
 
 import { PageHeader } from '@/components/shell/AppShell';
 import { EmptyState, ErrorState, InfoBanner, StatCard } from '@/components/ui/data';
-import { CountBars } from '@/components/ui/charts';
+import {
+  ADMIN_SERIES_COLORS,
+  AdminTrendChart,
+  formatMs,
+} from '@/components/ui/charts';
 import { Badge, Card, CardHeader, Skeleton } from '@/components/ui/primitives';
+import {
+  TrendRangeCustomFields,
+  TrendRangeTabs,
+  useTrendRange,
+} from '@/components/ui/trend-range';
 import { friendlyMessage } from '@/lib/api/errors';
-import { useAdminOcrDashboard, useOcrScans } from '@/lib/queries/hooks';
+import { useAdminOcrDashboard, useAdminOcrTrend, useOcrScans } from '@/lib/queries/hooks';
+
+const VOLUME_SERIES = [
+  { key: 'scans', label: 'Scans', color: ADMIN_SERIES_COLORS.primary },
+] as const;
+
+// Success and failure are a status pair, not two arbitrary categories, so they
+// take the status colours rather than a slot in the categorical ramp.
+const OUTCOME_SERIES = [
+  { key: 'successes', label: 'Successful', color: ADMIN_SERIES_COLORS.success },
+  { key: 'failures', label: 'Failed', color: ADMIN_SERIES_COLORS.failure },
+] as const;
+
+const DURATION_SERIES = [
+  { key: 'avg_duration_ms', label: 'Avg processing', color: ADMIN_SERIES_COLORS.secondary },
+] as const;
 
 export default function AdminOcrPage() {
+  const trend = useTrendRange('6m');
+  const ocrTrend = useAdminOcrTrend(trend.from, trend.to, !trend.invalid);
   const dashboard = useAdminOcrDashboard();
   const scans = useOcrScans();
 
@@ -70,15 +96,58 @@ export default function AdminOcrPage() {
           </div>
 
           <Card className="mt-6">
-            <CardHeader title="Scan volume" />
-            <CountBars
-              title="Scans per day"
-              valueLabel="Scans"
-              data={(dashboard.data ?? [])
-                .slice()
-                .reverse()
-                .map((d) => ({ name: d.day.slice(5), value: d.scans }))}
+            <CardHeader
+              title="Scanning trends"
+              action={<TrendRangeTabs window={trend} />}
             />
+            <TrendRangeCustomFields window={trend} />
+
+            {ocrTrend.error ? (
+              <ErrorState
+                description={friendlyMessage(ocrTrend.error)}
+                onRetry={() => ocrTrend.refetch()}
+              />
+            ) : ocrTrend.isPending && !trend.invalid ? (
+              <Skeleton className="h-[260px] rounded-card" />
+            ) : (
+              <div className="flex flex-col gap-6">
+                <section>
+                  <h3 className="mb-2 text-body-2 font-medium text-secondary">
+                    Scans over time
+                  </h3>
+                  <AdminTrendChart
+                    title="OCR scans by month"
+                    data={ocrTrend.data ?? []}
+                    series={VOLUME_SERIES}
+                  />
+                </section>
+
+                <div className="grid gap-6 lg:grid-cols-2">
+                  <section>
+                    <h3 className="mb-2 text-body-2 font-medium text-secondary">
+                      Successful vs failed
+                    </h3>
+                    <AdminTrendChart
+                      title="OCR outcomes by month"
+                      data={ocrTrend.data ?? []}
+                      series={OUTCOME_SERIES}
+                    />
+                  </section>
+
+                  <section>
+                    <h3 className="mb-2 text-body-2 font-medium text-secondary">
+                      Average processing time
+                    </h3>
+                    <AdminTrendChart
+                      title="Average OCR processing time by month"
+                      data={ocrTrend.data ?? []}
+                      series={DURATION_SERIES}
+                      format={formatMs}
+                    />
+                  </section>
+                </div>
+              </div>
+            )}
           </Card>
         </>
       )}

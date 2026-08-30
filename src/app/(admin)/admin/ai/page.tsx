@@ -5,7 +5,16 @@ import { useState } from 'react';
 
 import { PageHeader } from '@/components/shell/AppShell';
 import { Amount, ErrorState, InfoBanner, StatCard } from '@/components/ui/data';
-import { CountBars } from '@/components/ui/charts';
+import {
+  ADMIN_SERIES_COLORS,
+  AdminTrendChart,
+  formatMs,
+} from '@/components/ui/charts';
+import {
+  TrendRangeCustomFields,
+  TrendRangeTabs,
+  useTrendRange,
+} from '@/components/ui/trend-range';
 import {
   Badge,
   Button,
@@ -19,6 +28,7 @@ import { Modal, useToast } from '@/components/ui/overlay';
 import { friendlyMessage } from '@/lib/api/errors';
 import {
   useAdminAiDashboard,
+  useAdminAiTrend,
   useAdminDeleteProviderKey,
   useAdminProviders,
   useAdminSetActiveProvider,
@@ -26,8 +36,24 @@ import {
   useAdminSetProviderLimits,
 } from '@/lib/queries/hooks';
 
+const REQUEST_SERIES = [
+  { key: 'requests', label: 'Requests', color: ADMIN_SERIES_COLORS.primary },
+] as const;
+
+// A status pair, so it takes the status colours rather than categorical slots.
+const OUTCOME_SERIES = [
+  { key: 'successes', label: 'Successful', color: ADMIN_SERIES_COLORS.success },
+  { key: 'failures', label: 'Failed', color: ADMIN_SERIES_COLORS.failure },
+] as const;
+
+const LATENCY_SERIES = [
+  { key: 'avg_duration_ms', label: 'Avg response', color: ADMIN_SERIES_COLORS.secondary },
+] as const;
+
 export default function AdminAiPage() {
   const providers = useAdminProviders();
+  const trend = useTrendRange('6m');
+  const aiTrend = useAdminAiTrend(trend.from, trend.to, !trend.invalid);
   const dashboard = useAdminAiDashboard();
   const setKey = useAdminSetProviderKey();
   const deleteKey = useAdminDeleteProviderKey();
@@ -92,17 +118,70 @@ export default function AdminAiPage() {
       )}
 
       <Card className="mt-6">
-        <CardHeader title="Usage by provider" />
+        <CardHeader
+          title="AI trends"
+          action={<TrendRangeTabs window={trend} />}
+        />
+        <TrendRangeCustomFields window={trend} />
+
+        {aiTrend.error ? (
+          <ErrorState
+            description={friendlyMessage(aiTrend.error)}
+            onRetry={() => aiTrend.refetch()}
+          />
+        ) : aiTrend.isPending && !trend.invalid ? (
+          <Skeleton className="h-[260px] rounded-card" />
+        ) : (
+          <div className="flex flex-col gap-6">
+            <section>
+              <h3 className="mb-2 text-body-2 font-medium text-secondary">
+                AI requests over time
+              </h3>
+              <AdminTrendChart
+                title="AI requests by month"
+                data={aiTrend.data ?? []}
+                series={REQUEST_SERIES}
+              />
+            </section>
+
+            <div className="grid gap-6 lg:grid-cols-2">
+              <section>
+                <h3 className="mb-2 text-body-2 font-medium text-secondary">
+                  Successful vs failed
+                </h3>
+                <AdminTrendChart
+                  title="AI request outcomes by month"
+                  data={aiTrend.data ?? []}
+                  series={OUTCOME_SERIES}
+                />
+              </section>
+
+              <section>
+                <h3 className="mb-2 text-body-2 font-medium text-secondary">
+                  Average response time
+                </h3>
+                <AdminTrendChart
+                  title="Average AI response time by month"
+                  data={aiTrend.data ?? []}
+                  series={LATENCY_SERIES}
+                  format={formatMs}
+                />
+              </section>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      <Card className="mt-6">
+        <CardHeader
+          title="Usage by provider"
+          description="Totals for the last 30 days."
+        />
         {dashboard.isPending ? (
           <Skeleton className="h-56 w-full" />
         ) : (
           <>
-            <CountBars
-              title="Requests by provider, last 30 days"
-              valueLabel="Requests"
-              data={(dashboard.data ?? []).map((r) => ({ name: r.provider, value: r.requests }))}
-            />
-            <table className="mt-4 w-full text-body-2">
+            <table className="w-full text-body-2">
               <caption className="sr-only">Per-provider usage and cost</caption>
               <thead>
                 <tr className="bg-sunken text-left">
