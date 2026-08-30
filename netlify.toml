@@ -9,8 +9,18 @@
 
 [build]
   command = "npm run build"
-  # No `publish` key: the Next.js runtime plugin (v5) manages the output
-  # directory itself, and setting one here conflicts with it.
+
+  # Must be set explicitly, and must not equal the base directory.
+  #
+  # Omitting it does NOT hand the decision to the Next.js plugin — it leaves
+  # whatever the Netlify UI has, which defaults to the repo root. The plugin
+  # then fails with "Your publish directory cannot be the same as the base
+  # directory of your site", because publish resolved to /opt/build/repo.
+  #
+  # Settings in netlify.toml take precedence over the UI, so declaring it here
+  # fixes the deploy without anyone having to remember to edit the dashboard,
+  # and keeps the build reproducible from the repo alone.
+  publish = ".next"
 
 [build.environment]
   # Next 14 requires Node >= 18.17; pin to an active LTS so local and CI match.
