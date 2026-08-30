@@ -61,7 +61,12 @@ begin
     coalesce(s.n, 0),
     -- Cumulative: everyone who had signed up by the end of that month, which
     -- is what "growth" means on this chart.
-    (select coalesce(sum(s2.n), 0) from signups s2 where s2.month <= mo.month)
+    --
+    -- The cast is required, not cosmetic: sum() over bigint returns numeric,
+    -- the column is declared bigint, and Postgres rejects the mismatch when
+    -- the function is CALLED rather than when it is created. It applied
+    -- cleanly and then failed on first use.
+    (select coalesce(sum(s2.n), 0)::bigint from signups s2 where s2.month <= mo.month)
   from months mo
   left join signups s on s.month = mo.month
   order by mo.month;
@@ -272,12 +277,15 @@ begin
       from public.ocr_scan_log
   ),
   agg as (
-    select month,
+    -- Qualified as ops.month on purpose: a bare `month` here collides with
+    -- this function's OUT parameter of the same name, and PL/pgSQL raises
+    -- "column reference month is ambiguous" at call time, not at create time.
+    select ops.month as month,
            count(*) as operations,
-           count(*) filter (where status = 'success') as successes,
-           count(*) filter (where status = 'failed')  as failures,
-           avg(duration_ms) as avg_ms
-    from ops group by 1
+           count(*) filter (where ops.status = 'success') as successes,
+           count(*) filter (where ops.status = 'failed')  as failures,
+           avg(ops.duration_ms) as avg_ms
+    from ops group by ops.month
   )
   select
     mo.month,
@@ -293,10 +301,25 @@ begin
 end;
 $$;
 
+-- `revoke ... from anon` alone is not enough: Supabase also grants EXECUTE via
+-- PUBLIC, so anon keeps the privilege through that and the linter flags it as
+-- publicly callable. Both have to go. This is the same trap Phase 3 hit on
+-- three earlier RPCs — the in-body is_super_admin() guard still refuses the
+-- call, but a caller should not be able to reach the function at all.
 revoke execute on function public.admin_month_series(date, date) from public, anon, authenticated;
-revoke execute on function public.admin_user_growth(date, date)   from anon;
-revoke execute on function public.admin_active_users(date, date)  from anon;
-revoke execute on function public.admin_feature_usage(date, date) from anon;
-revoke execute on function public.admin_ocr_trend(date, date)     from anon;
-revoke execute on function public.admin_ai_trend(date, date)      from anon;
-revoke execute on function public.admin_ops_trend(date, date)     from anon;
+
+revoke execute on function public.admin_user_growth(date, date)   from public, anon;
+revoke execute on function public.admin_active_users(date, date)  from public, anon;
+revoke execute on function public.admin_feature_usage(date, date) from public, anon;
+revoke execute on function public.admin_ocr_trend(date, date)     from public, anon;
+revoke execute on function public.admin_ai_trend(date, date)      from public, anon;
+revoke execute on function public.admin_ops_trend(date, date)     from public, anon;
+
+-- Revoking from PUBLIC also strips authenticated, so the intended caller is
+-- granted back explicitly.
+grant execute on function public.admin_user_growth(date, date)   to authenticated;
+grant execute on function public.admin_active_users(date, date)  to authenticated;
+grant execute on function public.admin_feature_usage(date, date) to authenticated;
+grant execute on function public.admin_ocr_trend(date, date)     to authenticated;
+grant execute on function public.admin_ai_trend(date, date)      to authenticated;
+grant execute on function public.admin_ops_trend(date, date)     to authenticated;
