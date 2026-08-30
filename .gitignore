@@ -1,5 +1,50 @@
-.env
-.env.local
-.env*.local
-.next/
+# dependencies
 node_modules/
+.pnp/
+.pnp.js
+
+# environment / secrets
+#
+# `.env.*` is deliberately broad: the previous list covered .env.local and
+# .env*.local but NOT .env.production, which would hold production secrets.
+# The negation keeps the committed template.
+.env
+.env.*
+!.env.example
+
+# next.js
+# next-env.d.ts is intentionally tracked in this repo, so it is not listed.
+.next/
+out/
+
+# build output
+dist/
+build/
+
+# testing
+coverage/
+.vitest/
+test-results/
+playwright-report/
+
+# supabase local dev artifacts
+supabase/.branches/
+supabase/.temp/
+supabase/.env
+supabase/functions/**/.env
+
+# logs
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# editors / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# misc
+*.tsbuildinfo
+.vercel
