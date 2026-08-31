@@ -48,3 +48,6 @@ Thumbs.db
 # misc
 *.tsbuildinfo
 .vercel
+
+# netlify cli local link state (contains the linked site id)
+.netlify/
