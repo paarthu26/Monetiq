@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { AuthLayout } from '@/components/auth/AuthLayout';
 import { InfoBanner } from '@/components/ui/data';
 import { Button, Input, PasswordInput } from '@/components/ui/primitives';
+import { describeAuthFailure, runAuthCall } from '@/lib/supabase/auth-call';
 import { createClient } from '@/lib/supabase/client';
 import { resetPasswordSchema } from '@/lib/validation/schemas';
 
@@ -24,10 +25,18 @@ export default function ResetPasswordPage() {
   // Supabase puts the user in a recovery session when the link is valid. No
   // session means the link was already used, expired, or tampered with.
   useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getSession().then(({ data }) => {
-      setLinkState(data.session ? 'valid' : 'invalid');
+    let cancelled = false;
+    // An unguarded `.then` here left the page on its loading skeleton forever
+    // if the call threw or stalled. Treat anything that is not a confirmed
+    // session as an unusable link — the screen already tells the user how to
+    // request a fresh one.
+    runAuthCall(() => createClient().auth.getSession()).then((outcome) => {
+      if (cancelled) return;
+      setLinkState(outcome.status === 'ok' && outcome.value.data.session ? 'valid' : 'invalid');
     });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function onSubmit(e: React.FormEvent) {
@@ -49,9 +58,17 @@ export default function ResetPasswordPage() {
     setErrors({});
     setBusy(true);
 
-    const supabase = createClient();
-    const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
+    const outcome = await runAuthCall(() =>
+      createClient().auth.updateUser({ password: parsed.data.password }),
+    );
     setBusy(false);
+
+    if (outcome.status !== 'ok') {
+      setFormError(describeAuthFailure(outcome));
+      return;
+    }
+
+    const { error } = outcome.value;
 
     if (error) {
       setFormError('That password could not be set. Request a fresh link and try again.');
