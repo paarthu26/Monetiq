@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { AuthLayout } from '@/components/auth/AuthLayout';
 import { InfoBanner } from '@/components/ui/data';
 import { Button, Input } from '@/components/ui/primitives';
+import { describeAuthFailure, runAuthCall } from '@/lib/supabase/auth-call';
 import { createClient } from '@/lib/supabase/client';
 import { forgotPasswordSchema } from '@/lib/validation/schemas';
 
@@ -26,13 +27,21 @@ export default function ForgotPasswordPage() {
     setError(undefined);
     setBusy(true);
 
-    const supabase = createClient();
-    await supabase.auth.resetPasswordForEmail(parsed.data.email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
+    const outcome = await runAuthCall(() =>
+      createClient().auth.resetPasswordForEmail(parsed.data.email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      }),
+    );
     setBusy(false);
-    // Always shows the same confirmation, whether or not the address exists —
-    // otherwise this endpoint enumerates accounts.
+
+    // A call that never reached Supabase is reported, because "check your
+    // inbox" would be a lie — no email was ever requested. A call that DID
+    // reach it always shows the same confirmation, whether or not the address
+    // exists, so this endpoint cannot be used to enumerate accounts.
+    if (outcome.status !== 'ok') {
+      setError(describeAuthFailure(outcome));
+      return;
+    }
     setSent(true);
   }
 

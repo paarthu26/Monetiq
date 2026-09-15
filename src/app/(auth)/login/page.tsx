@@ -7,6 +7,7 @@ import { Suspense, useState } from 'react';
 import { AuthLayout } from '@/components/auth/AuthLayout';
 import { InfoBanner } from '@/components/ui/data';
 import { Button, Input, PasswordInput, Skeleton } from '@/components/ui/primitives';
+import { describeAuthFailure, runAuthCall } from '@/lib/supabase/auth-call';
 import { createClient } from '@/lib/supabase/client';
 import { loginSchema } from '@/lib/validation/schemas';
 
@@ -42,9 +43,17 @@ function LoginForm() {
     setErrors({});
     setBusy(true);
 
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword(parsed.data);
+    const outcome = await runAuthCall(() => createClient().auth.signInWithPassword(parsed.data));
     setBusy(false);
+
+    // A call that never reached Supabase has no `error` to interpret. Say what
+    // actually happened instead of leaving the button spinning.
+    if (outcome.status !== 'ok') {
+      setFormError(describeAuthFailure(outcome));
+      return;
+    }
+
+    const { error } = outcome.value;
 
     if (error) {
       // An unconfirmed address is a distinct, actionable state — telling that
@@ -68,11 +77,20 @@ function LoginForm() {
 
   async function onGoogle() {
     setGoogleNotice(null);
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
-    });
+
+    const outcome = await runAuthCall(() =>
+      createClient().auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: `${window.location.origin}/auth/callback` },
+      }),
+    );
+
+    if (outcome.status !== 'ok') {
+      setGoogleNotice(describeAuthFailure(outcome));
+      return;
+    }
+
+    const { error } = outcome.value;
     if (error) {
       // Google is configured but NOT enabled on the project (Phase 1 §4).
       // Say so calmly rather than dumping the raw provider error.

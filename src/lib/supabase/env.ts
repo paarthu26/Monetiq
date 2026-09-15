@@ -1,55 +1,45 @@
 /**
- * Supabase connection settings, read once with a real error behind them.
+ * Supabase connection settings, read so that they survive the client build.
  *
- * The three client factories previously used `process.env.X!`. The `!` only
- * silences TypeScript — at runtime an undefined value is passed straight into
- * `createClient`, which fails with:
+ * READ THIS BEFORE CHANGING THE `process.env` ACCESS BELOW.
  *
- *   "Your project's URL and Key are required to create a Supabase client!"
+ * Next.js does not give browser code a populated `process.env`. It performs a
+ * literal text substitution at build time: every occurrence of the exact token
+ * `process.env.NEXT_PUBLIC_FOO` in code that reaches the client is replaced
+ * with the value as a string constant. That substitution is syntactic.
  *
- * That message names neither the missing variable nor the file it belongs in,
- * and it surfaces as a server error inside middleware, which makes it look
- * like a code fault rather than a missing local config. Since `.env.local` is
- * gitignored (correctly — it is per-developer), a fresh clone has no env file
- * at all, and this is the first thing anyone hits.
+ * An earlier version of this file looked the values up dynamically:
  *
- * The values MUST be read as static `process.env.NEXT_PUBLIC_*` member
- * expressions, which is why they are passed in by the callers below rather
- * than looked up as `process.env[name]` inside `required`.
+ *     const value = process.env[name];        // WRONG in client code
  *
- * Next.js makes a `NEXT_PUBLIC_` variable available to browser code by
- * substituting the literal text `process.env.NEXT_PUBLIC_FOO` for its value at
- * build time. That substitution is purely syntactic: it only matches a static
- * member access. A dynamic lookup — `process.env[name]` — is invisible to it,
- * so nothing is substituted, and the browser bundle is left reading a key off
- * an object that does not carry it. The variable being correctly set in the
- * build environment makes no difference; there is no `process.env` in a
- * browser to read it back from.
+ * There is no literal `process.env.NEXT_PUBLIC_SUPABASE_URL` token for the
+ * compiler to find, so nothing was substituted, and in the browser the lookup
+ * read an empty object and returned undefined — no matter what was set at
+ * build time. Server code and middleware kept working, because they read a
+ * real `process.env` at runtime. The result was a deployed site that rendered
+ * the sign-in page and then threw "Missing NEXT_PUBLIC_SUPABASE_URL" the
+ * moment anything in the browser tried to build a Supabase client.
  *
- * The effect is that every Client Component using the browser Supabase client
- * (login, register, password reset) throws "Missing NEXT_PUBLIC_SUPABASE_URL"
- * in production, while server components and middleware work fine — those run
- * in Node and do read the real environment at request time.
- *
- * Consequence of doing this correctly: because the values are now baked in at
- * build time, changing either variable on the host requires a rebuild, not
- * just a restart. That is the standard contract for `NEXT_PUBLIC_` variables.
+ * So the variables are referenced statically, one literal each, and the value
+ * is passed in. `scripts/check-bundle-secrets.sh` asserts the URL really is
+ * present in .next/static so this cannot regress silently.
  */
 
 function required(name: string, value: string | undefined): string {
   if (!value || value.trim() === '') {
     throw new Error(
       `Missing ${name}.\n\n` +
-        `Create a .env.local file in the project root containing:\n\n` +
+        `Locally: create a .env.local file in the project root containing:\n\n` +
         `  NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co\n` +
         `  NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key>\n\n` +
         `Copy .env.example as a starting point, then restart the dev server — ` +
         `Next.js only reads env files at startup, so editing one while it is ` +
-        `running has no effect.\n` +
-        `Values are in Supabase → Project Settings → API.\n\n` +
-        `If this appears in a deployed build, the variable was missing when ` +
-        `that build ran. Set it on the host and redeploy — these are inlined ` +
-        `at build time, so a restart alone will not pick up a new value.`,
+        `running has no effect.\n\n` +
+        `When deployed: set it in the host's environment variables and build ` +
+        `again. NEXT_PUBLIC_* values are compiled into the browser bundle at ` +
+        `build time, so a variable added after a build does not reach an ` +
+        `already-built site — it needs a fresh deploy.\n\n` +
+        `Values are in Supabase → Project Settings → API.`,
     );
   }
 
