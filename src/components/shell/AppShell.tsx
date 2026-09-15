@@ -8,6 +8,7 @@ import {
   PanelLeftOpen,
   Search,
   Settings,
+  ShieldCheck,
   X,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -249,8 +250,29 @@ function GlobalSearch({ isAdmin }: { isAdmin: boolean }) {
  * is reachable exclusively from the mobile tab bar, and nothing in ADMIN_NAV
  * points at it. Signing out is the one action people expect to find under
  * their own avatar, so it lives there now for both variants.
+ *
+ * `isSuperAdmin` is what the signed-in profile says; `isAdmin` is merely which
+ * shell is currently rendered. They are not the same question, and the gap
+ * between them is why the admin area was unreachable: logging in always lands
+ * on /dashboard, the user shell hard-codes isAdmin to false, and nothing in
+ * USER_NAV points at /admin — so a super admin had no way in short of typing
+ * the URL. The entry below closes that, and only for the user shell, since the
+ * admin shell already reaches these screens through ADMIN_NAV.
+ *
+ * Showing the link is a convenience, NOT an authorisation decision. The admin
+ * layout re-checks the role and Row Level Security refuses non-admins at the
+ * database, so revealing it to the wrong person would cost nothing but a
+ * permission-denied screen.
  */
-function AccountMenu({ isAdmin, name }: { isAdmin: boolean; name: string }) {
+function AccountMenu({
+  isAdmin,
+  isSuperAdmin,
+  name,
+}: {
+  isAdmin: boolean;
+  isSuperAdmin: boolean;
+  name: string;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -323,6 +345,18 @@ function AccountMenu({ isAdmin, name }: { isAdmin: boolean; name: string }) {
             Signed in as <span className="text-secondary">{name}</span>
           </p>
           <div aria-hidden className="my-1 h-px bg-hairline" />
+
+          {isSuperAdmin && !isAdmin && (
+            <Link
+              href="/admin"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2.5 px-4 py-2.5 text-body-2 text-body hover:bg-cream-200"
+            >
+              <ShieldCheck aria-hidden strokeWidth={1.75} className="h-4 w-4 text-muted" />
+              Admin area
+            </Link>
+          )}
 
           <Link
             href={isAdmin ? '/admin/more' : '/settings'}
@@ -480,6 +514,7 @@ export function AppShell({
             )}
             <AccountMenu
               isAdmin={isAdmin}
+              isSuperAdmin={profile?.role === 'super_admin'}
               name={profile?.full_name ?? (isAdmin ? 'Administrator' : 'Monetiq user')}
             />
           </div>

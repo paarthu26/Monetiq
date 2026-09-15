@@ -18,6 +18,7 @@ import AdminRolesPage from '@/app/(admin)/admin/roles/page';
 import AdminSystemPage from '@/app/(admin)/admin/system/page';
 import AdminUserDetailPage from '@/app/(admin)/admin/users/[id]/page';
 import AdminUsersPage from '@/app/(admin)/admin/users/page';
+import { AppShell } from '@/components/shell/AppShell';
 import { USER_ID } from '../fixtures';
 
 const asAdmin = { role: 'super_admin' as const };
@@ -194,5 +195,66 @@ describe('ST-32 Non-admin hitting an admin route', () => {
     const layout = readFileSync('src/app/(admin)/layout.tsx', 'utf8');
     expect(layout).toMatch(/NOT a security boundary/);
     expect(layout).toMatch(/Row Level Security/);
+  });
+});
+
+/* --------------------------------- admin entry point from the user shell -- */
+
+/**
+ * Signing in always lands on /dashboard, and the user shell hard-codes its
+ * `isAdmin` flag to false, so a super admin used to have no route into the
+ * admin area except typing the URL. These cover the account-menu entry that
+ * closes that gap — and that it stays hidden from everyone else.
+ */
+describe('Admin entry point in the user shell', () => {
+  // The fake API returns one profile row and overrides only `role`, so the
+  // displayed name is the same whichever role is under test.
+  const PROFILE_NAME = 'Asha Menon';
+
+  /** The avatar button; identified by its menu semantics, not its label. */
+  function accountMenuTrigger(): HTMLElement {
+    const trigger = screen
+      .getAllByRole('button')
+      .find((b) => b.getAttribute('aria-haspopup') === 'menu');
+    if (!trigger) throw new Error('account menu trigger not found');
+    return trigger;
+  }
+
+  it('gives a super admin a way into /admin without typing the URL', async () => {
+    const user = userEvent.setup();
+    renderScreen(<AppShell variant="user">dashboard</AppShell>, asAdmin);
+
+    // Wait for the profile to land: the role is unknown until it does.
+    await screen.findByText(PROFILE_NAME);
+    await user.click(accountMenuTrigger());
+
+    const link = await screen.findByRole('menuitem', { name: /admin area/i });
+    expect(link).toHaveAttribute('href', '/admin');
+  });
+
+  it('does not show it to a normal user', async () => {
+    const user = userEvent.setup();
+    renderScreen(<AppShell variant="user">dashboard</AppShell>, { role: 'user' });
+
+    await screen.findByText(PROFILE_NAME);
+    await user.click(accountMenuTrigger());
+
+    // The menu really is open — Settings proves it — and the entry is absent.
+    expect(await screen.findByRole('menuitem', { name: /settings/i })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /admin area/i })).not.toBeInTheDocument();
+  });
+
+  it('does not repeat the entry inside the admin shell', async () => {
+    const user = userEvent.setup();
+    renderScreen(<AppShell variant="admin">admin</AppShell>, asAdmin);
+
+    await screen.findByText(PROFILE_NAME);
+    await user.click(accountMenuTrigger());
+
+    // ADMIN_NAV already reaches these screens, so the shortcut would be noise.
+    expect(
+      await screen.findByRole('menuitem', { name: /all admin sections/i }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /admin area/i })).not.toBeInTheDocument();
   });
 });
